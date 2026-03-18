@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sasre – Dashboard Producción</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0f1117; --surface:#1a1d27; --surface2:#222636; --border:#2e3247;
+  --accent:#e8c97a; --accent2:#6b9fff; --text:#e2e4ef; --muted:#6b7096;
+  --green:#5ecb8d; --red:#e8706a; --orange:#ffb347;
+  --proc-tej:#6b9fff; --proc-punt:#b87fff; --proc-corte:#5ecb8d;
+  --proc-bomb:#ffb347; --proc-planch:#ff7fa0; --proc-term:#5ecbcb;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;font-size:13px;}
+
+/* ── TOP BAR ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;}
+.logo span{color:var(--accent);}
+.topbar-nav{display:flex;gap:4px;}
+.nav-btn{background:transparent;border:1px solid transparent;color:var(--muted);padding:5px 14px;border-radius:4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s;}
+.nav-btn:hover{color:var(--text);border-color:var(--border);}
+.nav-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(232,201,122,.07);}
+
+/* ── PAGES ── */
+.page{display:none;padding:0;}
+.page.active{display:block;}
+
+/* ── CONTROLS ── */
+.controls{display:flex;gap:10px;padding:10px 20px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--surface);}
+label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+select,input[type=number]{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 9px;border-radius:4px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;outline:none;}
+select:focus,input[type=number]:focus{border-color:var(--accent);}
+.btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 13px;border-radius:4px;font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,201,122,.08);}
+.ctrl-sep{width:1px;height:20px;background:var(--border);}
+
+/* ── KPI STRIP ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:0;border-bottom:1px solid var(--border);}
+.kpi-card{padding:12px 14px;border-right:1px solid var(--border);}
+.kpi-card:last-child{border-right:none;}
+.kpi-label{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;line-height:1;}
+.kpi-sub{font-size:10px;margin-top:3px;}
+.kpi-pos{color:var(--green);}
+.kpi-neg{color:var(--red);}
+.kpi-neu{color:var(--muted);}
+.kpi-warn{color:var(--orange);}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:5px;}
+.progress-fill{height:100%;border-radius:2px;transition:width .4s;}
+
+/* ── MAIN LAYOUT ── */
+.dashboard-body{display:grid;grid-template-columns:260px 1fr;height:calc(100vh - 130px);overflow:hidden;}
+.panel-left{border-right:1px solid var(--border);overflow-y:auto;padding:8px;}
+.panel-right{overflow-y:auto;}
+.panel-content{padding:14px 16px;}
+
+/* ── WEEK LIST ── */
+.week-item{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:5px;cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:all .12s;}
+.week-item:hover{background:var(--surface);}
+.week-item.sel{background:var(--surface2);border-color:var(--border);}
+.week-item.cmp{background:rgba(107,159,255,.06);border-color:rgba(107,159,255,.22);}
+.week-num{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);width:36px;flex-shrink:0;}
+.week-date{font-size:11px;font-weight:500;flex:1;}
+.week-bars{display:flex;gap:2px;align-items:flex-end;height:20px;}
+.wbar{width:5px;border-radius:2px 2px 0 0;min-height:2px;}
+.week-total{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);text-align:right;min-width:50px;}
+.cmp-badge{font-size:9px;font-family:'IBM Plex Mono',monospace;padding:1px 4px;border-radius:3px;background:rgba(107,159,255,.2);color:var(--accent2);}
+
+/* ── SECTOR GRID ── */
+.sector-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.sector-card{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:10px 12px;}
+.s-name{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;font-family:'IBM Plex Mono',monospace;}
+.s-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;}
+.s-unit{font-size:9px;color:var(--muted);margin-top:1px;}
+.s-sub{font-size:10px;margin-top:3px;}
+.s-eff{font-size:10px;color:var(--muted);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+
+/* ── CHART ── */
+.chart-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:12px;margin-bottom:14px;height:150px;position:relative;}
+.chart-title{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;}
+
+/* ── EMPLOYEE ── */
+.section-title{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.emp-filter{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.emp-chip{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-family:'IBM Plex Mono',monospace;transition:all .12s;color:var(--muted);background:var(--surface2);}
+.emp-chip:hover{border-color:var(--accent);color:var(--accent);}
+.emp-chip.active{background:rgba(232,201,122,.1);border-color:var(--accent);color:var(--accent);}
+.emp-row{margin-bottom:10px;}
+.emp-name{font-size:12px;font-weight:500;margin-bottom:4px;}
+.emp-proc-list{display:flex;flex-wrap:wrap;gap:4px;}
+.proc-tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 7px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);}
+.proc-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.proc-cant{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
+.dph-tag{font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(94,203,141,.1);color:var(--green);}
+.ng-tag{font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(232,112,106,.1);color:var(--red);}
+
+/* compare */
+.cmp-row{display:flex;gap:5px;align-items:center;}
+.cv-a{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);}
+.cv-b{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent2);}
+
+/* ── LEGEND ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
+.leg-dot{width:7px;height:7px;border-radius:50%;}
+
+/* ── CONFIG PAGE ── */
+.config-body{max-width:860px;margin:0 auto;padding:24px 20px;}
+.config-section{margin-bottom:32px;}
+.config-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.config-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.config-field{display:flex;flex-direction:column;gap:5px;}
+.config-field label{font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+.config-field input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:4px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;width:100%;}
+.config-field input:focus{border-color:var(--accent);}
+.config-hint{font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* Exclusion table */
+.excl-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.excl-table{width:100%;border-collapse:collapse;}
+.excl-table th{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.excl-table td{padding:7px 10px;border-bottom:1px solid rgba(46,50,71,.5);font-size:12px;}
+.excl-table tr:hover td{background:var(--surface2);}
+.del-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;font-family:'IBM Plex Mono',monospace;}
+.del-btn:hover{border-color:var(--red);color:var(--red);}
+.add-btn{background:rgba(232,201,122,.1);border:1px solid var(--accent);color:var(--accent);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+.add-btn:hover{background:rgba(232,201,122,.2);}
+.save-btn{background:var(--accent);border:none;color:#0f1117;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+.save-btn:hover{background:#f0d88a;}
+.saved-msg{font-size:11px;color:var(--green);display:none;}
+
+/* no data */
+.no-data{color:var(--muted);font-size:12px;padding:30px;text-align:center;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:700px){
+  .kpi-strip{grid-template-columns:repeat(2,1fr);}
+  .dashboard-body{grid-template-columns:1fr;}
+  .panel-left{height:220px;border-right:none;border-bottom:1px solid var(--border);}
+  .sector-grid{grid-template-columns:repeat(2,1fr);}
+  .config-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">Sasre · <span>Producción</span></div>
+  <div style="display:flex;align-items:center;gap:10px;"><button class="btn" onclick="refreshData()" title="Actualizar datos desde Google Sheets" style="font-size:10px">↻ Actualizar</button><div class="topbar-nav">
+    <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('config')">Configuración</button>
+  </div></div>
+</div>
+
+
+<!-- Loading overlay -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,17,23,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div>
+  <div id="loading-msg" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:.08em;"></div>
+</div>
+<!-- Error overlay -->
+<div id="error-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,17,23,.95);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;">
+  <div style="font-size:24px;">⚠️</div>
+  <div id="error-msg" style="font-size:12px;color:var(--muted);text-align:center;max-width:400px;line-height:1.6;white-space:pre-line;"></div>
+  <button onclick="refreshData()" class="btn" style="margin-top:8px;color:var(--accent);border-color:var(--accent)">Reintentar</button>
+</div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- ══════════════ DASHBOARD PAGE ══════════════ -->
+<div class="page active" id="page-dashboard">
+
+  <!-- Controls -->
+  <div class="controls">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label>Vista</label>
+      <button class="btn active" id="btn-single" onclick="setMode('single')">Semana</button>
+      <button class="btn" id="btn-compare" onclick="setMode('compare')">Comparar</button>
+    </div>
+    <div class="ctrl-sep"></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label>Mostrar</label>
+      <select id="weeks-range" onchange="render()">
+        <option value="12">Últimas 12 semanas</option>
+        <option value="26">Últimas 26 semanas</option>
+        <option value="52" selected>Último año</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi-card"><div class="kpi-label">Total semana</div><div class="kpi-value kpi-neu">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">vs Meta</div><div class="kpi-value kpi-neu">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Cuello de botella</div><div class="kpi-value kpi-neu" style="font-size:14px">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Eficiencia global</div><div class="kpi-value kpi-neu">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Destacado</div><div class="kpi-value kpi-neu" style="font-size:13px">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Desvío 4 sem</div><div class="kpi-value kpi-neu">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">% Fallas</div><div class="kpi-value kpi-neu">—</div></div>
+  </div>
+
+  <!-- Body -->
+  <div class="dashboard-body">
+    <div class="panel-left"><div id="week-list"></div></div>
+    <div class="panel-right"><div class="panel-content" id="panel-content"><div class="no-data">Seleccioná una semana</div></div></div>
+  </div>
+</div>
+
+<!-- ══════════════ CONFIG PAGE ══════════════ -->
+<div class="page" id="page-config">
+<div class="config-body">
+
+  <!-- Metas -->
+  <div class="config-section">
+    <div class="config-title">Metas semanales por sector (docenas)</div>
+    <div class="config-grid" id="config-metas"></div>
+    <div class="config-hint" style="margin-top:10px">Dejar en 0 para omitir esa meta del dashboard.</div>
+  </div>
+
+  <!-- Capacidad -->
+  <div class="config-section">
+    <div class="config-title">Capacidad disponible (horas por semana)</div>
+    <div class="config-grid" id="config-capacidad"></div>
+    <div class="config-hint" style="margin-top:10px">Suma de horas de todos los empleados del sector por semana.</div>
+  </div>
+
+  <!-- Exclusiones -->
+  <div class="config-section">
+    <div class="config-title">Artículos a excluir del análisis</div>
+    <div class="excl-controls">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label>Proceso</label>
+        <select id="excl-proc" onchange="updateArticuloSelect()"></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label>Artículo</label>
+        <select id="excl-art"></select>
+      </div>
+      <button class="add-btn" onclick="addExclusion()">+ Agregar</button>
+    </div>
+    <table class="excl-table">
+      <thead><tr><th>Proceso</th><th>Artículo</th><th></th></tr></thead>
+      <tbody id="excl-tbody"></tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
+    <button class="save-btn" onclick="saveConfig()">Guardar configuración</button>
+    <span class="saved-msg" id="saved-msg">✓ Guardado</span>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ══════════════ DATA ══════════════
+// ══════════════ CONFIG ══════════════
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyph7Qn929JBhB9pPWATp7CJzpEsZQu5J1tiP6Jo0rgN80KdpvC3pU8c9ci5VeVBlT2CA/exec?key=suge1010';
+const DPH_MAX = 100;
+
+let RAW = null; // populated after fetch
+
+// ── Loading overlay ──
+function showLoading(msg) {
+  document.getElementById('loading-overlay').style.display = 'flex';
+  document.getElementById('loading-msg').textContent = msg || 'Cargando datos...';
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+function showError(msg) {
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('error-overlay').style.display = 'flex';
+  document.getElementById('error-msg').textContent = msg;
+}
+
+// ── Date parsing from ISO string ──
+function parseDate(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'string' && val.includes('T')) return new Date(val);
+  return null;
+}
+
+function getWeekMonday(dt) {
+  const d = new Date(dt);
+  const day = d.getUTCDay(); // 0=Sun
+  const diff = (day === 0) ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  d.setUTCHours(0,0,0,0);
+  return d.toISOString().slice(0,10);
+}
+
+function sameDay(dt1, dt2) {
+  if (!dt1 || !dt2) return false;
+  return dt1.toISOString().slice(0,10) === dt2.toISOString().slice(0,10);
+}
+
+function hoursDiff(dt1, dt2) {
+  if (!dt1 || !dt2 || dt2 <= dt1) return null;
+  return (dt2 - dt1) / 3600000;
+}
+
+// ── Process raw sheets data into RAW.records + RAW.articulos_por_proceso ──
+function processSheetData(sheets) {
+  const records = {};
+  const artsByProc = {Tejeduría:new Set(),Puntera:new Set(),Corte:new Set(),Bombacha:new Set(),Planchado:new Set(),Terminado:new Set()};
+
+  function ensureWeekProc(week, proc) {
+    if (!records[week]) records[week] = {};
+    if (!records[week][proc]) records[week][proc] = {};
+  }
+  function addRecord(week, proc, emp, rec) {
+    ensureWeekProc(week, proc);
+    if (!records[week][proc][emp]) records[week][proc][emp] = [];
+    records[week][proc][emp].push(rec);
+  }
+
+  // TEJEDURIA
+  (sheets.tejeduria || []).forEach(r => {
+    const dt = parseDate(r['prod_realizada_tej_fecha']);
+    if (!dt || !r['Responsable'] || !r['prod_realizada_tej_cantidad']) return;
+    const week = getWeekMonday(dt);
+    const art = String(r['Articulo'] || '');
+    if (art) artsByProc['Tejeduría'].add(art);
+    addRecord(week, 'Tejeduría', r['Responsable'], {
+      art, cant: parseFloat(r['prod_realizada_tej_cantidad']) || 0, ng: 0, h: null, sd: true
+    });
+  });
+
+  // LOTE_CONF
+  const PROC_MAP = [
+    ['Puntera',  'Responsable Puntera',  'Puntera_inicio',   'Puntera_fin'],
+    ['Corte',    'Responsable Corte',    'Corte_inicio',     'Corte_fin'],
+    ['Bombacha', 'Responsable Bombacha', 'Bombacha_inicio',  'Bombacha_fin'],
+    ['Planchado','Responsable Planchado','Planchado_inicio', 'Planchado_fin'],
+  ];
+  (sheets.lote_conf || []).forEach(r => {
+    const cant = parseFloat(r['lote_conf_cantidad_OK_total']) || parseFloat(r['lote_conf_cantidad']) || 0;
+    const ng   = parseFloat(r['lote_conf_cantidad_NG_total']) || 0;
+    const art  = String(r['Articulo'] || '');
+
+    PROC_MAP.forEach(([proc, respCol, iniCol, finCol]) => {
+      const resp = r[respCol];
+      if (!resp || resp === 'No aplica') return;
+      const ini = parseDate(r[iniCol]);
+      if (!ini) return;
+      const fin = parseDate(r[finCol]);
+      const sd  = sameDay(ini, fin);
+      const h   = sd ? hoursDiff(ini, fin) : null;
+      const week = getWeekMonday(ini);
+      if (art) artsByProc[proc].add(art);
+      addRecord(week, proc, resp, { art, cant, ng, h, sd });
+    });
+  });
+
+  // TERMINADO
+  (sheets.terminado || []).forEach(r => {
+    if (r['terminado_estado'] !== 'Finalizada') return;
+    const ini = parseDate(r['terminado_fecha_inicio']);
+    if (!ini || !r['terminado_responsable'] || !r['terminado_cant_ok_total']) return;
+    const fin  = parseDate(r['terminado_fecha_fin']);
+    const sd   = sameDay(ini, fin);
+    const h    = sd ? hoursDiff(ini, fin) : null;
+    const week = getWeekMonday(ini);
+    const cant = (parseFloat(r['terminado_cant_ok_total']) || 0) / 12;
+    const ng   = (parseFloat(r['terminado_cant_ng_total']) || 0) / 12;
+    const art  = String(r['Articulo'] || '');
+    if (art) artsByProc['Terminado'].add(art);
+    addRecord(week, 'Terminado', r['terminado_responsable'], { art, cant: Math.round(cant*100)/100, ng: Math.round(ng*100)/100, h, sd });
+  });
+
+  // Sort articulos
+  const artsByProcSorted = {};
+  Object.entries(artsByProc).forEach(([p, s]) => {
+    artsByProcSorted[p] = [...s].sort((a,b) => {
+      const na = parseInt(a), nb = parseInt(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+  });
+
+  // Keep only last 52 weeks
+  const allWeeksSorted = Object.keys(records).sort().reverse().slice(0, 52);
+  const filteredRecords = {};
+  allWeeksSorted.forEach(w => { filteredRecords[w] = records[w]; });
+
+  return { records: filteredRecords, articulos_por_proceso: artsByProcSorted };
+}
+
+async function fetchData() {
+  showLoading('Conectando con Google Sheets...');
+  try {
+    const resp = await fetch(SHEETS_URL, { redirect: 'follow' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    showLoading('Procesando datos...');
+    const sheets = await resp.json();
+    if (sheets.error) throw new Error(sheets.error);
+    RAW = processSheetData(sheets);
+    hideLoading();
+    return true;
+  } catch(e) {
+    showError('No se pudo conectar con Google Sheets.\nDetalle: ' + e.message);
+    return false;
+  }
+}
+async function init() {
+  loadConfig();
+  const ok = await fetchData();
+  if (!ok) return;
+  renderConfig();
+  const initWeeks = allWeeks();
+  if (initWeeks.length) selectedWeek = initWeeks[0];
+  render();
+}
+
+// Refresh button
+function refreshData() {
+  RAW = null;
+  selectedWeek = null;
+  compareWeek = null;
+  activeEmployees = new Set();
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  init();
+}
+
+init();
+</script>
+</body>
+</html>
