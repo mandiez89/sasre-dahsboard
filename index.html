@@ -627,7 +627,7 @@ function showPage(p,btn){
   if(btn)btn.classList.add('active');
   if(p==='config')renderCfg();
   if(p==='articulo')renderArticuloPage();
-  if(p==='patrones'){renderPeriodBar('pat-period-bar','pat','onPatPeriodChange');renderPatrones();}
+  if(p==='patrones'){renderPatrones();}
   if(p==='productividad'){renderPeriodBar('prod-period-bar','prod','onProdPeriodChange');initProdPage();}
 }
 
@@ -945,7 +945,37 @@ function setPeriodDate(ctx,field,val,onChangeFn){
 // ── PATRONES ──
 let patBombChart=null,patMaqChart=null,selectedMaqs=new Set();
 
-function setPatPeriod(){}// legacy
+function setPatPeriod(btn,months){
+  const ctrl=document.getElementById('pat-period-ctrl');
+  if(!ctrl)return;
+  const mode=months===-1?'custom':String(months);
+  periodState.pat.mode=mode;
+
+  const dateRange=document.getElementById('pat-date-range');
+  if(dateRange){
+    const custom=mode==='custom';
+    dateRange.classList.toggle('visible',custom);
+    if(!custom){
+      periodState.pat.dateFrom='';
+      periodState.pat.dateTo='';
+      const from=document.getElementById('pat-date-from');
+      const to=document.getElementById('pat-date-to');
+      if(from)from.value='';
+      if(to)to.value='';
+    }else{
+      const from=document.getElementById('pat-date-from')?.value||'';
+      const to=document.getElementById('pat-date-to')?.value||'';
+      periodState.pat.dateFrom=from;
+      periodState.pat.dateTo=to;
+    }
+  }
+
+  ctrl.querySelectorAll('.seg-btn').forEach(b=>{
+    const bMode=b.dataset.months==='-1'?'custom':b.dataset.months;
+    b.classList.toggle('active',bMode===mode);
+  });
+  renderPatrones();
+}
 
 function getPatWeeks(){
   const allWeeks=Object.keys(PATRONES_DATA.bomb_costurera).sort().reverse();
@@ -972,7 +1002,7 @@ function barRow(label, val, maxVal, pct, pctClass, sub){
 }
 
 function renderMaqTej(){
-  const mq=PATRONES_DATA.maq_quality, maqWeekly=PATRONES_DATA.maq_quality_weekly||{}, maqNg=PROD_DATA.maq_ng||{};
+  const mq=PATRONES_DATA.maq_quality||{}, maqWeekly=PATRONES_DATA.maq_quality_weekly||{}, maqNg=PATRONES_DATA.maq_ng||PROD_DATA.maq_ng||{};
   const filtWeeks=new Set(getPatWeeks());
   const maqFilt={};
   Object.entries(maqWeekly).forEach(([maq,weeks])=>{
@@ -1100,13 +1130,21 @@ function showMaqDetail(maq){
   // For simplicity: filter maq_week sums and use total (no per-art week filtering available)
   // Use total art data filtered... actually maq_art is total (no weekly breakdown per art)
   // So just show total filtered by whether the maq had activity in the period
-  const arts=Object.entries(artData)
+  let arts=Object.entries(artData)
     .map(([art,d])=>({art,c:d.c,n:d.n,tot:d.c+d.n,pct:d.c+d.n>0?d.n/(d.c+d.n)*100:0}))
     .filter(d=>d.tot>0&&d.n>0)
     .sort((a,b)=>b.pct-a.pct)
     .slice(0,10);
 
-  const maqNg=PATRONES_DATA.maq_ng?.[maq]||{cant:0,ng:0};
+  if(!arts.length){
+    const topCtrls=(PATRONES_DATA.maq_quality?.[maq]?.top_ctrl||[])
+      .map(([label,val])=>({art:String(label).replace(/^control\\s*/i,''),c:0,n:val,tot:val,pct:100}))
+      .filter(d=>d.n>0)
+      .slice(0,10);
+    arts=topCtrls;
+  }
+
+  const maqNg=PATRONES_DATA.maq_ng?.[maq]||PROD_DATA.maq_ng?.[maq]||{cant:0,ng:0};
   const totalPct=maqNg.cant+maqNg.ng>0?maqNg.ng/(maqNg.cant+maqNg.ng)*100:0;
 
   if(!arts.length){content.innerHTML='<div class="nodata">Sin artículos con fallas para esta máquina</div>';return;}
