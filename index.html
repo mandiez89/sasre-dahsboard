@@ -977,7 +977,7 @@ function renderMaqTej(){
   const maqFilt={};
   Object.entries(maqWeekly).forEach(([maq,weeks])=>{
     let pass=0,fail=0;
-    Object.entries(weeks).forEach(([w,d])=>{if(patMonths===0||filtWeeks.has(w)){pass+=d.p;fail+=d.f;}});
+    Object.entries(weeks).forEach(([w,d])=>{if(periodState.pat.mode==='0'||filtWeeks.has(w)){pass+=d.p;fail+=d.f;}});
     if(pass+fail>0)maqFilt[maq]={pass,fail,pct:fail/(pass+fail)*100,top_ctrl:(mq[maq]||{}).top_ctrl||[]};
   });
   const qualSrc=Object.keys(maqFilt).length?maqFilt:Object.fromEntries(Object.entries(mq).map(([m,d])=>[m,{...d,pct:d.pass+d.fail>0?d.fail/(d.pass+d.fail)*100:0}]));
