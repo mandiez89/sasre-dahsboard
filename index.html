@@ -1704,16 +1704,9 @@ function renderPromRanking(){
 }
 
 function getProdWeeks(){
+  if(!RAW||!RAW.records)return[];
   const allW=Object.keys(RAW.records).sort().reverse();
-  if(prodMonths===0)return allW;
-  if(prodMonths===-1){
-    const from=document.getElementById('prod-date-from')?.value;
-    const to=document.getElementById('prod-date-to')?.value;
-    return allW.filter(w=>(!from||w>=from)&&(!to||w<=to));
-  }
-  const cutoff=new Date();cutoff.setMonth(cutoff.getMonth()-prodMonths);
-  const cs=cutoff.toISOString().slice(0,10);
-  return allW.filter(w=>w>=cs);
+  return getWeeksForPeriod(allW,periodState.prod);
 }
 function initProdPage(){
   const sel=document.getElementById('prod-proc-sel');
