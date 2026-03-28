@@ -2099,13 +2099,15 @@ function applyTheme(t){
   if(icon)icon.textContent=t==='dark'?'light_mode':'dark_mode';
   localStorage.setItem('sasre_theme',t);
   if(typeof Chart!=='undefined') Chart.defaults.color=t==='dark'?'#C4C6D0':'#74777F';
-  Chart.defaults.plugins={...Chart.defaults.plugins,tooltip:{
-    backgroundColor:t==='dark'?'#1D2030':'#FFFFFF',
-    titleColor:t==='dark'?'#E2E2E9':'#191C20',
-    bodyColor:t==='dark'?'#C4C6D0':'#44474E',
-    borderColor:t==='dark'?'#44474E':'#C4C6D0',
-    borderWidth:1,padding:10,cornerRadius:8,boxPadding:4
-  }};
+  // Set tooltip defaults safely
+  if(Chart.defaults.plugins&&Chart.defaults.plugins.tooltip){
+    const tt=Chart.defaults.plugins.tooltip;
+    tt.backgroundColor=t==='dark'?'#1D2030':'#FFFFFF';
+    tt.titleColor=t==='dark'?'#E2E2E9':'#191C20';
+    tt.bodyColor=t==='dark'?'#C4C6D0':'#44474E';
+    tt.borderColor=t==='dark'?'#44474E':'#C4C6D0';
+    tt.borderWidth=1;tt.padding=10;tt.cornerRadius=8;tt.boxPadding=4;
+  }
 }
 function toggleTheme(){
   const current=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
