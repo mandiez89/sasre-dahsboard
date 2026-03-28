@@ -598,15 +598,17 @@ function sd2(a,b){return a&&b&&a.toISOString().slice(0,10)===b.toISOString().sli
 function hd2(a,b){return(!a||!b||b<=a)?null:(b-a)/3600000;}
 
 function horasLaborales(ini,fin,hIni=7,hFin=16){
-  // Calcula horas dentro del turno hIni-hFin, tolerando lotes que cruzan días
+  // Solo acepta lotes del mismo día o que terminan al día siguiente inmediato
   if(!ini||!fin||fin<=ini)return null;
+  const diffDias=Math.floor((fin-ini)/86400000);
+  if(diffDias>1)return null; // más de 1 noche → descartado
   let total=0,cur=new Date(ini);
   while(cur<=fin){
     const tIni=new Date(cur);tIni.setHours(hIni,0,0,0);
     const tFin=new Date(cur);tFin.setHours(hFin,0,0,0);
-    const eIni=new Date(Math.max(cur,tIni));
+    const eIni=new Date(Math.max(cur.getTime(),tIni.getTime()));
     const eFinLim=cur.toDateString()===fin.toDateString()?fin:tFin;
-    const eFin=new Date(Math.min(eFinLim,tFin));
+    const eFin=new Date(Math.min(eFinLim.getTime(),tFin.getTime()));
     if(eFin>eIni)total+=(eFin-eIni)/3600000;
     cur=new Date(cur);cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);
   }
@@ -2097,6 +2099,13 @@ function applyTheme(t){
   if(icon)icon.textContent=t==='dark'?'light_mode':'dark_mode';
   localStorage.setItem('sasre_theme',t);
   if(typeof Chart!=='undefined') Chart.defaults.color=t==='dark'?'#C4C6D0':'#74777F';
+  Chart.defaults.plugins={...Chart.defaults.plugins,tooltip:{
+    backgroundColor:t==='dark'?'#1D2030':'#FFFFFF',
+    titleColor:t==='dark'?'#E2E2E9':'#191C20',
+    bodyColor:t==='dark'?'#C4C6D0':'#44474E',
+    borderColor:t==='dark'?'#44474E':'#C4C6D0',
+    borderWidth:1,padding:10,cornerRadius:8,boxPadding:4
+  }};
 }
 function toggleTheme(){
   const current=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
