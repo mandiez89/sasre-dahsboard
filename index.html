@@ -1115,6 +1115,130 @@ function renderPanel(){
 }
 
 // ── SINGLE ──
+
+// ── NG GLOBAL MENSUAL ──
+function calcNGMensual(){
+  // Agrupa fallas por mes usando todos los registros disponibles
+  const meses = {};
+  const allW = Object.keys(RAW.records).sort();
+  allW.forEach(w => {
+    const mes = w.slice(0,7); // "2025-10"
+    const a = agg(w);
+    if(!a) return;
+    if(!meses[mes]) meses[mes] = {cn:0, co:0, tn:0, to_:0};
+    CONF_PROCS.forEach(p => {
+      if(a[p]){ meses[mes].co += a[p].tc; meses[mes].cn += a[p].tn; }
+    });
+    if(a.Terminado){ meses[mes].to_ += a.Terminado.tc; meses[mes].tn += a.Terminado.tn; }
+  });
+  return meses;
+}
+
+function buildNGGlobalHTML(ws){
+  // KPI: NG global de la semana seleccionada
+  const a = agg(ws);
+  const f = calcFallas(a);
+  const ngGlobal = fPct(f.cn + f.tn, f.co + f.to_);
+  const ngCls = ngGlobal == null ? 'neu' : ngGlobal >= 8 ? 'neg' : ngGlobal >= 2 ? 'warn' : 'pos';
+
+  // Evolución mensual — últimos 12 meses
+  const meses = calcNGMensual();
+  const mesList = Object.keys(meses).sort().slice(-12);
+  const labels = mesList.map(m => {
+    const [y,mo] = m.split('-');
+    const nombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return nombres[+mo-1] + ' ' + y.slice(2);
+  });
+  const ngData = mesList.map(m => {
+    const d = meses[m];
+    const p = fPct(d.cn + d.tn, d.co + d.to_);
+    return p != null ? Math.round(p * 10) / 10 : null;
+  });
+  const mesActual = ws.slice(0,7);
+  const bgColors = mesList.map(m => m === mesActual ? '#BA1A1A' : '#BA1A1A44');
+  const borderColors = mesList.map(() => '#BA1A1A');
+
+  return `
+    <div class="stitle" style="margin-bottom:16px">
+      Fallas globales · % NG
+      <span style="font-size:10px">confección + terminado</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;font-weight:500;color:var(--md-on-surface-var);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;">Esta semana</div>
+        <div style="font-family:'Roboto Mono',monospace;font-size:36px;font-weight:500;" class="${ngCls}">
+          ${ngGlobal != null ? ngGlobal.toFixed(1) + '%' : '—'}
+        </div>
+        <div style="font-size:12px;color:var(--md-on-surface-var);margin-top:4px;">
+          ${(f.cn+f.tn).toFixed(1)} NG / ${(f.co+f.to_+f.cn+f.tn).toFixed(1)} doc
+        </div>
+      </div>
+      <div style="flex:1;height:120px;position:relative;">
+        <canvas id="ng-mensual-chart"></canvas>
+      </div>
+    </div>`;
+}
+
+let ngMensualChart = null;
+function drawNGMensualChart(ws){
+  if(ngMensualChart){ngMensualChart.destroy();ngMensualChart=null;}
+  const cv = document.getElementById('ng-mensual-chart');
+  if(!cv) return;
+  const meses = calcNGMensual();
+  const mesList = Object.keys(meses).sort().slice(-12);
+  const mesActual = ws.slice(0,7);
+  const labels = mesList.map(m => {
+    const [y,mo] = m.split('-');
+    const n = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return n[+mo-1] + "'" + y.slice(2);
+  });
+  const ngData = mesList.map(m => {
+    const d = meses[m];
+    const p = fPct(d.cn+d.tn, d.co+d.to_);
+    return p != null ? Math.round(p*10)/10 : null;
+  });
+  const bgColors = mesList.map(m => m === mesActual ? '#BA1A1A' : '#BA1A1A55');
+  ngMensualChart = new Chart(cv, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '% NG',
+        data: ngData,
+        backgroundColor: bgColors,
+        borderColor: '#BA1A1A',
+        borderWidth: 1,
+        borderRadius: 3
+      }, {
+        label: 'Límite 8%',
+        data: labels.map(() => 8),
+        type: 'line',
+        borderColor: 'rgba(125,78,0,.5)',
+        borderWidth: 1.5,
+        borderDash: [5,4],
+        fill: false,
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {
+          backgroundColor: 'var(--md-surface-1)',
+          borderColor: 'var(--md-outline-var)', borderWidth: 1,
+          titleColor: 'var(--md-on-surface)', bodyColor: 'var(--md-on-surface-var)',
+          callbacks: {label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? ctx.raw.toFixed(1) : '—'}%`}
+        }
+      },
+      scales: {
+        x: {ticks:{color:'var(--md-on-surface-var)',font:{size:9,family:'Roboto'}}, grid:{color:'var(--md-outline-var)'}},
+        y: {ticks:{color:'var(--md-on-surface-var)',font:{size:9},callback:v=>v+'%'}, grid:{color:'var(--md-outline-var)'}, beginAtZero:true}
+      }
+    }
+  });
+}
+
 function renderSingle(c,a){
   const w=selW;if(!a){c.innerHTML='<div class="nodata">Sin datos para esta semana</div>';return;}
   const ws=weeks(),idx=ws.indexOf(w),prevA=idx>=0&&idx<ws.length-1?agg(ws[idx+1]):null;
@@ -1147,12 +1271,11 @@ function renderSingle(c,a){
     <div class="legend">${legend}</div>
     <div class="sgrid">${cards}</div>
     <div class="cwrap"><div class="ctitle">Tendencia · últimas 8 semanas</div><canvas id="trend-chart"></canvas></div>
+    <div class="card" style="padding:20px;margin-bottom:20px;">${buildNGGlobalHTML(w)}</div>
     <div class="stitle">Top 10 artículos con más fallas<span style="font-size:10px;color:var(--md-on-surface-var)">% = NG / (NG + OK)</span></div>
-    <div class="ftable-wrap" style="margin-bottom:20px">${t10H}</div>
-    <div class="stitle">Producción por empleado</div>
-    <div class="efilter">${chips}</div>
-    <div>${erows||'<div class="nodata">Sin datos</div>'}</div>`;
+    <div class="ftable-wrap" style="margin-bottom:20px">${t10H}</div>`;
   drawChart(tw,'trend-chart');
+  setTimeout(()=>drawNGMensualChart(w), 50);
 }
 
 // ── COMPARE ──
@@ -1989,6 +2112,7 @@ async function refreshData(){
   if(chart){chart.destroy();chart=null;}
   if(artChart){artChart.destroy();artChart=null;}
   if(artChart2){artChart2.destroy();artChart2=null;}
+  if(ngMensualChart){ngMensualChart.destroy();ngMensualChart=null;}
   document.getElementById('ov-err').style.display='none';
   const ok=await fetchSheets(true);
   if(ok){renderCfg();const w=weeks();if(w.length)selW=w[0];render();renderAlerts();}
