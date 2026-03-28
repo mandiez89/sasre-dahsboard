@@ -602,7 +602,6 @@ function processAllData(sh) {
     if(!rec[w][p][e])rec[w][p][e]=[];rec[w][p][e].push(r);
   }
 
-  // Tejeduría
   (sh.tejeduria||[]).forEach(r => {
     const dt=parseDate(r.prod_realizada_tej_fecha);
     if(!dt||!r.Responsable||!r.prod_realizada_tej_cantidad)return;
@@ -611,7 +610,6 @@ function processAllData(sh) {
     addRec(getWM(dt),'Tejeduría',r.Responsable,{art,cant:parseFloat(r.prod_realizada_tej_cantidad)||0,ng:0,h:null,sd:true});
   });
 
-  // Confección
   const PM=[['Puntera','Responsable Puntera','Puntera_inicio','Puntera_fin'],
             ['Corte','Responsable Corte','Corte_inicio','Corte_fin'],
             ['Bombacha','Responsable Bombacha','Bombacha_inicio','Bombacha_fin'],
@@ -629,7 +627,6 @@ function processAllData(sh) {
     });
   });
 
-  // Terminado
   (sh.terminado||[]).forEach(r => {
     if(r.terminado_estado!=='Finalizada')return;
     const ini=parseDate(r.terminado_fecha_inicio);
@@ -642,178 +639,151 @@ function processAllData(sh) {
     addRec(getWM(ini),'Terminado',r.terminado_responsable,{art,cant:Math.round(cant*100)/100,ng:Math.round(ng*100)/100,h,sd:isd});
   });
 
-  // Sort weeks, keep last 52 * 3 (enough for all filters)
-  const allWeeks = Object.keys(rec).sort().reverse();
-  const recFilt = {}; allWeeks.forEach(w => recFilt[w] = rec[w]);
-  const artsByProc = {};
-  Object.entries(arts).forEach(([p,s]) => {
-    artsByProc[p] = [...s].sort((a,b) => {const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);});
+  const allWeeks=Object.keys(rec).sort().reverse();
+  const recFilt={}; allWeeks.forEach(w=>recFilt[w]=rec[w]);
+  const artsByProc={};
+  Object.entries(arts).forEach(([p,s])=>{
+    artsByProc[p]=[...s].sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);});
   });
-  RAW = {records: recFilt, articulos_por_proceso: artsByProc};
+  RAW={records:recFilt, articulos_por_proceso:artsByProc};
 
   // ── Build ART_DATA ──
-  const artHistory = {}, artSet = new Set();
-  Object.entries(recFilt).forEach(([w, procs]) => {
-    // Tejeduría production per art
-    const tejByArt = {};
-    (procs['Tejeduría']||{}) && Object.values(procs['Tejeduría']||{}).forEach(recs =>
-      recs.forEach(r => { if(r.art){tejByArt[r.art]=(tejByArt[r.art]||0)+r.cant; artSet.add(r.art);} })
-    );
-    // Conf NG per art
-    const confByArt = {};
-    CONF_PROCS.forEach(p => {
-      Object.values(procs[p]||{}).forEach(recs =>
-        recs.forEach(r => { if(r.art){if(!confByArt[r.art])confByArt[r.art]={cc:0,cn:0};confByArt[r.art].cc+=r.cant;confByArt[r.art].cn+=r.ng||0;artSet.add(r.art);} })
-      );
-    });
-    // Term NG per art
-    const termByArt = {};
-    Object.values(procs['Terminado']||{}).forEach(recs =>
-      recs.forEach(r => { if(r.art){if(!termByArt[r.art])termByArt[r.art]={tc:0,tn:0};termByArt[r.art].tc+=r.cant;termByArt[r.art].tn+=r.ng||0;artSet.add(r.art);} })
-    );
-    // Merge into history
-    [...new Set([...Object.keys(tejByArt),...Object.keys(confByArt),...Object.keys(termByArt)])].forEach(art => {
+  const artHistory={}, artSet=new Set();
+  Object.entries(recFilt).forEach(([w,procs])=>{
+    const tejByArt={};
+    Object.values(procs['Tejeduría']||{}).forEach(recs=>recs.forEach(r=>{if(r.art){tejByArt[r.art]=(tejByArt[r.art]||0)+r.cant;artSet.add(r.art);}}));
+    const confByArt={};
+    CONF_PROCS.forEach(p=>{Object.values(procs[p]||{}).forEach(recs=>recs.forEach(r=>{if(r.art){if(!confByArt[r.art])confByArt[r.art]={cc:0,cn:0};confByArt[r.art].cc+=r.cant;confByArt[r.art].cn+=r.ng||0;artSet.add(r.art);}}));});
+    const termByArt={};
+    Object.values(procs['Terminado']||{}).forEach(recs=>recs.forEach(r=>{if(r.art){if(!termByArt[r.art])termByArt[r.art]={tc:0,tn:0};termByArt[r.art].tc+=r.cant;termByArt[r.art].tn+=r.ng||0;artSet.add(r.art);}}));
+    [...new Set([...Object.keys(tejByArt),...Object.keys(confByArt),...Object.keys(termByArt)])].forEach(art=>{
       if(!artHistory[art])artHistory[art]={};
-      const c=confByArt[art]||{cc:0,cn:0}, t=termByArt[art]||{tc:0,tn:0};
-      artHistory[art][w]={tej:tejByArt[art]||0, cc:c.cc, cn:c.cn, tc:t.tc, tn:t.tn};
+      const c=confByArt[art]||{cc:0,cn:0},t=termByArt[art]||{tc:0,tn:0};
+      artHistory[art][w]={tej:tejByArt[art]||0,cc:c.cc,cn:c.cn,tc:t.tc,tn:t.tn};
     });
   });
-  const artList = [...artSet].sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);});
-  ART_DATA = {arts: artList, history: artHistory};
+  const artList=[...artSet].sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);});
+  ART_DATA={arts:artList,history:artHistory};
 
   // ── Build COMMENTS_DATA ──
-  COMMENTS_DATA = {};
-  (sh.lote_conf||[]).forEach(r => {
-    const art=String(r.Articulo||''), comment=String(r.lote_conf_comentario||'').trim();
+  COMMENTS_DATA={};
+  (sh.lote_conf||[]).forEach(r=>{
+    const art=String(r.Articulo||''),comment=String(r.lote_conf_comentario||'').trim();
     const ng=parseFloat(r.lote_conf_cantidad_NG_total)||0;
     if(!art||!comment||comment==='—'||comment==='-')return;
     if(!COMMENTS_DATA[art])COMMENTS_DATA[art]=[];
     const ini=parseDate(r.Puntera_inicio);
-    COMMENTS_DATA[art].push({comment, ng, week: ini?getWM(ini):''});
+    COMMENTS_DATA[art].push({comment,ng,week:ini?getWM(ini):''});
   });
-  (sh.terminado||[]).forEach(r => {
-    const art=String(r.Articulo||''), comment=String(r.terminado_comentarios||'').trim();
+  (sh.terminado||[]).forEach(r=>{
+    const art=String(r.Articulo||''),comment=String(r.terminado_comentarios||'').trim();
     const ng=(parseFloat(r.terminado_cant_ng_total)||0)/12;
     if(!art||!comment||comment==='—'||comment==='-')return;
     if(!COMMENTS_DATA[art])COMMENTS_DATA[art]=[];
     const ini=parseDate(r.terminado_fecha_inicio);
-    COMMENTS_DATA[art].push({comment, ng, week: ini?getWM(ini):''});
+    COMMENTS_DATA[art].push({comment,ng,week:ini?getWM(ini):''});
   });
 
   // ── Build PATRONES_DATA ──
-  // Maq quality from tej_calidad
-  const ctrl_cols = ['tej_calidad_control_01_elastico_puño','tej_calidad_control_02_bombacha',
+  // Maq quality controls from tej_calidad
+  const ctrl_cols=['tej_calidad_control_01_elastico_puño','tej_calidad_control_02_bombacha',
     'tej_calidad_control_03_caña','tej_calidad_control_04_puntera',
     'tej_calidad_control_05','tej_calidad_control_06','tej_calidad_control_07',
     'tej_calidad_control_08','tej_calidad_control_09'];
   const maqQual={}, maqQualWeekly={};
-  (sh.tej_calidad||[]).forEach(r => {
-    const maq=r.maq_id; if(!maq)return;
-    const dt=parseDate(r.tej_calidad_fecha_y_hora); if(!dt)return;
+  (sh.tej_calidad||[]).forEach(r=>{
+    const maq=r.maq_id;if(!maq)return;
+    const dt=parseDate(r.tej_calidad_fecha_y_hora);if(!dt)return;
     const week=getWM(dt);
     if(!maqQual[maq])maqQual[maq]={pass:0,fail:0,by_ctrl:{}};
     if(!maqQualWeekly[maq])maqQualWeekly[maq]={};
     if(!maqQualWeekly[maq][week])maqQualWeekly[maq][week]={p:0,f:0};
-    ctrl_cols.forEach(col => {
+    ctrl_cols.forEach(col=>{
       const val=r[col];
       if(val===true||val==='TRUE'||val==='True'){maqQual[maq].pass++;maqQualWeekly[maq][week].p++;}
       else if(val===false||val==='FALSE'||val==='False'){
         maqQual[maq].fail++;maqQualWeekly[maq][week].f++;
-        const cname=col.replace('tej_calidad_','').replace(/_/g,' ');
-        maqQual[maq].by_ctrl[cname]=(maqQual[maq].by_ctrl[cname]||0)+1;
+        const cn=col.replace('tej_calidad_','').replace(/_/g,' ');
+        maqQual[maq].by_ctrl[cn]=(maqQual[maq].by_ctrl[cn]||0)+1;
       }
     });
   });
-  // top_ctrl per maq
-  Object.keys(maqQual).forEach(maq => {
-    maqQual[maq].top_ctrl = Object.entries(maqQual[maq].by_ctrl).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>[c,n]);
+  Object.keys(maqQual).forEach(maq=>{
+    maqQual[maq].top_ctrl=Object.entries(maqQual[maq].by_ctrl).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>[c,n]);
   });
 
   // Maq NG from lote_conf x orden_produccion
-  const maqNg={}, maqNgFull={};
-  (sh.lote_conf||[]).forEach(r => {
+  const maqNg={}, maqNgFull={}, maqConf={};
+  (sh.lote_conf||[]).forEach(r=>{
     const ng=parseFloat(r.lote_conf_cantidad_NG_total)||0;
     const cant=parseFloat(r.lote_conf_cantidad)||0;
-    const maq=op2maq[r.orden_prod_id]; if(!maq||!cant)return;
+    const maq=op2maq[r.orden_prod_id];if(!maq||!cant)return;
     const art=String(r.Articulo||'');
     const ini=parseDate(r.Puntera_inicio);
     const week=ini?getWM(ini):null;
+    // maqNg totals
     if(!maqNg[maq])maqNg[maq]={cant:0,ng:0};
-    maqNg[maq].cant+=cant; maqNg[maq].ng+=ng;
+    maqNg[maq].cant+=cant;maqNg[maq].ng+=ng;
+    // maqNgFull with arts and weeks
     if(!maqNgFull[maq])maqNgFull[maq]={cant:0,ng:0,arts:{},weeks:{}};
-    maqNgFull[maq].cant+=cant; maqNgFull[maq].ng+=ng;
+    maqNgFull[maq].cant+=cant;maqNgFull[maq].ng+=ng;
     if(art){
       if(!maqNgFull[maq].arts[art])maqNgFull[maq].arts[art]={c:0,n:0};
-      maqNgFull[maq].arts[art].c+=cant; maqNgFull[maq].arts[art].n+=ng;
+      maqNgFull[maq].arts[art].c+=cant;maqNgFull[maq].arts[art].n+=ng;
     }
     if(week){
       if(!maqNgFull[maq].weeks[week])maqNgFull[maq].weeks[week]={c:0,n:0};
-      maqNgFull[maq].weeks[week].c+=cant; maqNgFull[maq].weeks[week].n+=ng;
+      maqNgFull[maq].weeks[week].c+=cant;maqNgFull[maq].weeks[week].n+=ng;
+      // maqConf weekly
+      if(!maqConf[week])maqConf[week]={};
+      if(!maqConf[week][maq])maqConf[week][maq]={c:0,n:0};
+      maqConf[week][maq].c+=cant;maqConf[week][maq].n+=ng;
     }
   });
   // Sort arts by NG%
-  Object.keys(maqNgFull).forEach(maq => {
-    maqNgFull[maq].arts = Object.fromEntries(
+  Object.keys(maqNgFull).forEach(maq=>{
+    maqNgFull[maq].arts=Object.fromEntries(
       Object.entries(maqNgFull[maq].arts)
         .sort((a,b)=>{const pa=a[1].n/(a[1].c+a[1].n)||0,pb=b[1].n/(b[1].c+b[1].n)||0;return pb-pa;})
         .slice(0,20)
     );
   });
 
-  // Maq conf weekly (for trend chart)
-  const maqConf={};
-  (sh.lote_conf||[]).forEach(r => {
-    const ng=parseFloat(r.lote_conf_cantidad_NG_total)||0;
-    const cant=parseFloat(r.lote_conf_cantidad)||0;
-    const maq=op2maq[r.orden_prod_id]; if(!maq||!cant)return;
-    const ini=parseDate(r.Puntera_inicio); if(!ini)return;
-    const week=getWM(ini);
-    if(!maqConf[week])maqConf[week]={};
-    if(!maqConf[week][maq])maqConf[week][maq]={c:0,n:0};
-    maqConf[week][maq].c+=cant; maqConf[week][maq].n+=ng;
-  });
-
   // Bombacha costurera weekly
   const bombCosturera={};
-  (sh.lote_conf||[]).forEach(r => {
-    const resp=r['Responsable Bombacha']; if(!resp||resp==='No aplica')return;
-    const cant=parseFloat(r.lote_conf_cantidad)||0; if(!cant)return;
+  (sh.lote_conf||[]).forEach(r=>{
+    const resp=r['Responsable Bombacha'];if(!resp||resp==='No aplica')return;
+    const cant=parseFloat(r.lote_conf_cantidad)||0;if(!cant)return;
     const ng=parseFloat(r.lote_conf_cantidad_NG_total)||0;
-    const ini=parseDate(r.Bombacha_inicio); if(!ini)return;
+    const ini=parseDate(r.Bombacha_inicio);if(!ini)return;
     const week=getWM(ini);
     if(!bombCosturera[week])bombCosturera[week]={};
     if(!bombCosturera[week][resp])bombCosturera[week][resp]={c:0,n:0};
-    bombCosturera[week][resp].c+=cant; bombCosturera[week][resp].n+=ng;
+    bombCosturera[week][resp].c+=cant;bombCosturera[week][resp].n+=ng;
   });
 
-  PATRONES_DATA = {
-    maq_quality: maqQual,
-    maq_quality_weekly: maqQualWeekly,
-    maq_ng: maqNg,
-    maq_ng_full: maqNgFull,
-    maq_conf: maqConf,
-    bomb_costurera: bombCosturera
-  };
+  PATRONES_DATA={maq_quality:maqQual,maq_quality_weekly:maqQualWeekly,
+    maq_ng:maqNg,maq_ng_full:maqNgFull,maq_conf:maqConf,bomb_costurera:bombCosturera};
 
   // ── Build PROD_DATA ──
   const prodProc={};
-  Object.entries(recFilt).forEach(([week, procs]) => {
-    PROCS.forEach(p => {
+  Object.entries(recFilt).forEach(([week,procs])=>{
+    PROCS.forEach(p=>{
       if(!procs[p])return;
       if(!prodProc[p])prodProc[p]={};
-      Object.entries(procs[p]).forEach(([emp,recs]) => {
+      Object.entries(procs[p]).forEach(([emp,recs])=>{
         if(!prodProc[p][emp])prodProc[p][emp]={};
         if(!prodProc[p][emp][week])prodProc[p][emp][week]={cant:0,ng:0,horas:0,horas_cant:0,arts:{},dias_activos:0,lotes:0};
         const d=prodProc[p][emp][week];
-        recs.forEach(r => {
-          d.cant+=r.cant; d.ng+=r.ng||0; d.lotes++;
+        recs.forEach(r=>{
+          d.cant+=r.cant;d.ng+=r.ng||0;d.lotes++;
           if(r.art){d.arts[r.art]=(d.arts[r.art]||0)+r.cant;}
           if(r.sd&&r.h&&r.h>0&&r.cant/r.h<=100){d.horas+=r.h;d.horas_cant+=r.cant;}
         });
       });
     });
   });
-  // Compute dias_activos per emp/proc/week from raw timestamps
+  // dias_activos
   const empDiasSet={};
   const PM2=[['Puntera','Responsable Puntera','Puntera_inicio'],['Corte','Responsable Corte','Corte_inicio'],
              ['Bombacha','Responsable Bombacha','Bombacha_inicio'],['Planchado','Responsable Planchado','Planchado_inicio']];
@@ -821,25 +791,25 @@ function processAllData(sh) {
     PM2.forEach(([p,rc,ic])=>{
       const resp=r[rc];if(!resp||resp==='No aplica')return;
       const ini=parseDate(r[ic]);if(!ini)return;
-      const week=getWM(ini),day=ini.toISOString().slice(0,10),key=p+'|'+resp+'|'+week;
+      const key=p+'|'+resp+'|'+getWM(ini);
       if(!empDiasSet[key])empDiasSet[key]=new Set();
-      empDiasSet[key].add(day);
+      empDiasSet[key].add(ini.toISOString().slice(0,10));
     });
   });
   (sh.tejeduria||[]).forEach(r=>{
     const resp=r.Responsable;if(!resp)return;
     const dt=parseDate(r.prod_realizada_tej_fecha);if(!dt)return;
-    const week=getWM(dt),day=dt.toISOString().slice(0,10),key='Tejeduría|'+resp+'|'+week;
+    const key='Tejeduría|'+resp+'|'+getWM(dt);
     if(!empDiasSet[key])empDiasSet[key]=new Set();
-    empDiasSet[key].add(day);
+    empDiasSet[key].add(dt.toISOString().slice(0,10));
   });
   (sh.terminado||[]).forEach(r=>{
     if(r.terminado_estado!=='Finalizada')return;
     const resp=r.terminado_responsable;if(!resp)return;
     const dt=parseDate(r.terminado_fecha_inicio);if(!dt)return;
-    const week=getWM(dt),day=dt.toISOString().slice(0,10),key='Terminado|'+resp+'|'+week;
+    const key='Terminado|'+resp+'|'+getWM(dt);
     if(!empDiasSet[key])empDiasSet[key]=new Set();
-    empDiasSet[key].add(day);
+    empDiasSet[key].add(dt.toISOString().slice(0,10));
   });
   PROCS.forEach(p=>{
     Object.entries(prodProc[p]||{}).forEach(([emp,weeks])=>{
@@ -849,9 +819,53 @@ function processAllData(sh) {
       });
     });
   });
-  PROD_DATA = {prod: prodProc, maq_ng: maqNg};
+  PROD_DATA={prod:prodProc,maq_ng:maqNg};
 
-  console.log(`processAllData: ${Date.now()-t0}ms`);
+  // ── Build TIEMPOS_RAW (min/docena por art/proc/semana) ──
+  const tiemposRaw={};
+  const DPH_MIN=0.5, DPH_MAX_T=50;
+  (sh.lote_conf||[]).forEach(r=>{
+    const cant=parseFloat(r.lote_conf_cantidad)||0;
+    const art=String(r.Articulo||'');
+    if(!cant||!art)return;
+    const procDefs=[
+      ['Puntera',r['Puntera_inicio'],r['Puntera_fin']],
+      ['Corte',r['Corte_inicio'],r['Corte_fin']],
+      ['Bombacha',r['Bombacha_inicio'],r['Bombacha_fin']],
+      ['Planchado',r['Planchado_inicio'],r['Planchado_fin']],
+    ];
+    procDefs.forEach(([proc,ini,fin])=>{
+      const id2=parseDate(ini),fd2=parseDate(fin);
+      if(!id2||!fd2||fd2<=id2)return;
+      if(id2.toDateString()!==fd2.toDateString())return;
+      const hrs=(fd2-id2)/3600000,dph=cant/hrs;
+      if(dph<DPH_MIN||dph>DPH_MAX_T)return;
+      const mpd=hrs*60/cant,week=getWM(id2);
+      if(!tiemposRaw[art])tiemposRaw[art]={};
+      if(!tiemposRaw[art][proc])tiemposRaw[art][proc]={};
+      if(!tiemposRaw[art][proc][week])tiemposRaw[art][proc][week]=[];
+      tiemposRaw[art][proc][week].push(mpd);
+    });
+  });
+  (sh.terminado||[]).forEach(r=>{
+    if(r.terminado_estado!=='Finalizada')return;
+    const cant_u=parseFloat(r.terminado_cant_ok_total)||0;
+    const cant=cant_u/12,art=String(r.Articulo||'');
+    if(!cant||!art)return;
+    const id2=parseDate(r.terminado_fecha_inicio),fd2=parseDate(r.terminado_fecha_fin);
+    if(!id2||!fd2||fd2<=id2)return;
+    if(id2.toDateString()!==fd2.toDateString())return;
+    const hrs=(fd2-id2)/3600000,dph=cant/hrs;
+    if(dph<DPH_MIN||dph>DPH_MAX_T)return;
+    const mpd=hrs*60/cant,week=getWM(id2);
+    if(!tiemposRaw[art])tiemposRaw[art]={};
+    if(!tiemposRaw[art]['Terminado'])tiemposRaw[art]['Terminado']={};
+    if(!tiemposRaw[art]['Terminado'][week])tiemposRaw[art]['Terminado'][week]=[];
+    tiemposRaw[art]['Terminado'][week].push(mpd);
+  });
+  window.TIEMPOS_RAW=tiemposRaw;
+
+  console.log('processAllData: '+(Date.now()-t0)+'ms | weeks:'+allWeeks.length+' arts:'+artList.length);
 }
 
 
@@ -1347,13 +1361,25 @@ function renderMaqTej(){
   });
   const qualSrc=Object.keys(maqFilt).length?maqFilt:
     Object.fromEntries(Object.entries(mq).map(([m,d])=>[m,{...d,pct:d.pass+d.fail>0?d.fail/(d.pass+d.fail)*100:0}]));
-  const allMaqs=new Set([...Object.keys(qualSrc),...Object.keys(maqNg)]);
+  // Filter % NG by period using weekly data
+  const maqNgFull=PATRONES_DATA.maq_ng_full||{};
+  const maqNgFilt={};
+  Object.entries(maqNgFull).forEach(([maq,d])=>{
+    let cant=0,ng=0;
+    Object.entries(d.weeks||{}).forEach(([w,wd])=>{
+      if(periodState.pat.mode==='0'||filtWeeks.has(w)){cant+=wd.c;ng+=wd.n;}
+    });
+    if(cant+ng>0) maqNgFilt[maq]={cant,ng};
+  });
+  // Fallback to totals if no weekly data
+  const maqNgSrc=Object.keys(maqNgFilt).length?maqNgFilt:maqNg;
+  const allMaqs=new Set([...Object.keys(qualSrc),...Object.keys(maqNgSrc)]);
   const sorted=[...allMaqs].map(maq=>{
     const q=qualSrc[maq]||{fail:0,pass:0,pct:0,top_ctrl:[]};
-    const n=maqNg[maq]||{cant:0,ng:0};
+    const n=maqNgSrc[maq]||{cant:0,ng:0};
     const ngPct=n.cant+n.ng>0?n.ng/(n.cant+n.ng)*100:null;
     return{maq,fail:q.fail||0,qPass:q.pass||0,qPct:q.pct||0,top:q.top_ctrl||[],ngPct,ngVal:n.ng,ngTot:n.cant+n.ng};
-  }).filter(d=>d.fail+d.qPass>0||d.ngTot>0).sort((a,b)=>b.ngPct-a.ngPct);
+  }).filter(d=>d.fail+d.qPass>0||d.ngTot>0).sort((a,b)=>(b.ngPct||0)-(a.ngPct||0));
   const el=document.getElementById('pat-maq-tej');
   if(!sorted.length){el.innerHTML='<div class="nodata">Sin datos para este período</div>';return;}
   const thS='padding:10px 14px;font-size:10px;font-weight:500;color:var(--md-on-surface-var);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--md-outline-var);background:var(--md-surface-1);text-align:right;';
@@ -1553,19 +1579,22 @@ function setPromMetric(m){
 }
 
 function getPromWeeks(){
-  if(!window.TIEMPOS_RAW) return [];
-  // Collect all weeks from TIEMPOS_RAW
+  if(!window.TIEMPOS_RAW||!Object.keys(window.TIEMPOS_RAW).length){
+    // Fallback: use RAW records weeks
+    if(RAW&&RAW.records) return getWeeksForPeriod(Object.keys(RAW.records).sort().reverse(), periodState.prom);
+    return [];
+  }
   const allW = new Set();
   Object.values(window.TIEMPOS_RAW).forEach(procs =>
     Object.values(procs).forEach(weeks => Object.keys(weeks).forEach(w => allW.add(w)))
   );
   const sorted = [...allW].sort().reverse();
-  return getWeeksForPeriod(sorted, periodState.prom);
+  return getWeeksForPeriod(sorted, periodState.prom||{mode:'12',dateFrom:'',dateTo:''});
 }
 
 function computePromData(){
   // Recompute PROMEDIOS_DATA from TIEMPOS_RAW filtered by period
-  if(!window.TIEMPOS_RAW) return {};
+  if(!window.TIEMPOS_RAW||!Object.keys(window.TIEMPOS_RAW).length) return {};
   const filtWeeks = new Set(getPromWeeks());
   const result = {};
   Object.entries(window.TIEMPOS_RAW).forEach(([art, procs]) => {
@@ -1590,9 +1619,12 @@ function computePromData(){
 }
 
 function initPromediosPage(){
-  periodState.prom = periodState.prom || {mode:'12', dateFrom:'', dateTo:''};
+  if(!periodState.prom) periodState.prom={mode:'12',dateFrom:'',dateTo:''};
   renderPeriodBar('prom-period-bar','prom','onPromPeriodChange');
+  // Debug
+  console.log('TIEMPOS_RAW keys:', Object.keys(window.TIEMPOS_RAW||{}).length);
   computePromData();
+  console.log('PROMEDIOS_DATA keys:', Object.keys(window.PROMEDIOS_DATA||{}).length);
   const arts = Object.keys(window.PROMEDIOS_DATA||{}).sort((a,b)=>{
     const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);
   });
