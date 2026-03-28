@@ -585,6 +585,22 @@ function getWM(dt){
 function sd2(a,b){return a&&b&&a.toISOString().slice(0,10)===b.toISOString().slice(0,10);}
 function hd2(a,b){return(!a||!b||b<=a)?null:(b-a)/3600000;}
 
+function horasLaborales(ini,fin,hIni=7,hFin=16){
+  // Calcula horas dentro del turno hIni-hFin, tolerando lotes que cruzan días
+  if(!ini||!fin||fin<=ini)return null;
+  let total=0,cur=new Date(ini);
+  while(cur<=fin){
+    const tIni=new Date(cur);tIni.setHours(hIni,0,0,0);
+    const tFin=new Date(cur);tFin.setHours(hFin,0,0,0);
+    const eIni=new Date(Math.max(cur,tIni));
+    const eFinLim=cur.toDateString()===fin.toDateString()?fin:tFin;
+    const eFin=new Date(Math.min(eFinLim,tFin));
+    if(eFin>eIni)total+=(eFin-eIni)/3600000;
+    cur=new Date(cur);cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);
+  }
+  return total>0?total:null;
+}
+
 function processAllData(sh) {
   const t0 = Date.now();
 
@@ -822,6 +838,7 @@ function processAllData(sh) {
   PROD_DATA={prod:prodProc,maq_ng:maqNg};
 
   // ── Build TIEMPOS_RAW (min/docena por art/proc/semana) ──
+  // Usa horas laborales turno 7-16, acepta lotes que cruzan días
   const tiemposRaw={};
   const DPH_MIN=0.5, DPH_MAX_T=50;
   (sh.lote_conf||[]).forEach(r=>{
@@ -837,8 +854,8 @@ function processAllData(sh) {
     procDefs.forEach(([proc,ini,fin])=>{
       const id2=parseDate(ini),fd2=parseDate(fin);
       if(!id2||!fd2||fd2<=id2)return;
-      const hrs=(fd2-id2)/3600000;
-      if(hrs<=0||hrs>72)return; // max 3 days
+      const hrs=horasLaborales(id2,fd2);
+      if(!hrs)return;
       const dph=cant/hrs;
       if(dph<DPH_MIN||dph>DPH_MAX_T)return;
       const mpd=hrs*60/cant,week=getWM(id2);
@@ -854,9 +871,8 @@ function processAllData(sh) {
     const cant=cant_u/12,art=String(r.Articulo||'');
     if(!cant||!art)return;
     const id2=parseDate(r.terminado_fecha_inicio),fd2=parseDate(r.terminado_fecha_fin);
-    if(!id2||!fd2||fd2<=id2)return;
-    const hrs=(fd2-id2)/3600000;
-    if(hrs<=0||hrs>72)return;
+    const hrs=horasLaborales(id2,fd2);
+    if(!hrs)return;
     const dph=cant/hrs;
     if(dph<DPH_MIN||dph>DPH_MAX_T)return;
     const mpd=hrs*60/cant,week=getWM(id2);
