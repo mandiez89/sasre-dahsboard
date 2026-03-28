@@ -837,8 +837,9 @@ function processAllData(sh) {
     procDefs.forEach(([proc,ini,fin])=>{
       const id2=parseDate(ini),fd2=parseDate(fin);
       if(!id2||!fd2||fd2<=id2)return;
-      if(id2.toDateString()!==fd2.toDateString())return;
-      const hrs=(fd2-id2)/3600000,dph=cant/hrs;
+      const hrs=(fd2-id2)/3600000;
+      if(hrs<=0||hrs>72)return; // max 3 days
+      const dph=cant/hrs;
       if(dph<DPH_MIN||dph>DPH_MAX_T)return;
       const mpd=hrs*60/cant,week=getWM(id2);
       if(!tiemposRaw[art])tiemposRaw[art]={};
@@ -854,8 +855,9 @@ function processAllData(sh) {
     if(!cant||!art)return;
     const id2=parseDate(r.terminado_fecha_inicio),fd2=parseDate(r.terminado_fecha_fin);
     if(!id2||!fd2||fd2<=id2)return;
-    if(id2.toDateString()!==fd2.toDateString())return;
-    const hrs=(fd2-id2)/3600000,dph=cant/hrs;
+    const hrs=(fd2-id2)/3600000;
+    if(hrs<=0||hrs>72)return;
+    const dph=cant/hrs;
     if(dph<DPH_MIN||dph>DPH_MAX_T)return;
     const mpd=hrs*60/cant,week=getWM(id2);
     if(!tiemposRaw[art])tiemposRaw[art]={};
