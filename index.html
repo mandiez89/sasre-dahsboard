@@ -1634,7 +1634,7 @@ function computePromData(){
       Object.entries(weeks).forEach(([w, arr]) => {
         if(periodState.prom.mode==='0' || filtWeeks.has(w)) vals.push(...arr);
       });
-      if(vals.length >= 2){
+      if(vals.length >= 1){
         vals.sort((a,b)=>a-b);
         const avg = vals.reduce((s,v)=>s+v,0)/vals.length;
         const med = vals.length%2===0
