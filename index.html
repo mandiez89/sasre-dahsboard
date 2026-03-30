@@ -547,7 +547,19 @@ input[type=date]:focus{border-color:var(--md-primary);}
       <button class="addbtn" onclick="addExcl()">
         <span class="material-icons-ro
 
+
+
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-btn active" data-page="dashboard" onclick="showPage('dashboard',null);syncBNav(this)"><span class="material-icons-round">dashboard</span>Dashboard</button>
+  <button class="bnav-btn" data-page="articulo" onclick="showPage('articulo',null);syncBNav(this)"><span class="material-icons-round">inventory_2</span>Artículo</button>
+  <button class="bnav-btn" data-page="patrones" onclick="showPage('patrones',null);syncBNav(this)"><span class="material-icons-round">insights</span>Patrones</button>
+  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Productiv.</button>
+  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
+  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
+</nav>
+
 <script>
+
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyKCEB5YpQ2SvTOoHkMuPhrriK1D57dB4qjFvFPWQkVtp97eOFXYtIBXvKaRmmEEesbUw/exec?key=suge1010';
 const PROCS = ['Tejeduría','Puntera','Corte','Bombacha','Planchado','Terminado'];
 const CONF_PROCS = ['Puntera','Corte','Bombacha','Planchado'];
@@ -2223,15 +2235,7 @@ function renderExclTbl(){
 }
 initTheme();
 init();
-</script>
 
-<nav class="bottom-nav" id="bottom-nav">
-  <button class="bnav-btn active" data-page="dashboard" onclick="showPage('dashboard',null);syncBNav(this)"><span class="material-icons-round">dashboard</span>Dashboard</button>
-  <button class="bnav-btn" data-page="articulo" onclick="showPage('articulo',null);syncBNav(this)"><span class="material-icons-round">inventory_2</span>Artículo</button>
-  <button class="bnav-btn" data-page="patrones" onclick="showPage('patrones',null);syncBNav(this)"><span class="material-icons-round">insights</span>Patrones</button>
-  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Productiv.</button>
-  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
-  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
-</nav>
+</script>
 </body>
 </html>
