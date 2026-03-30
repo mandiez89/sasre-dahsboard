@@ -528,28 +528,27 @@ input[type=date]:focus{border-color:var(--md-primary);}
     <div class="chint" style="margin-top:10px">Suma de horas de todos los empleados del sector.</div>
   </div>
   <div class="cfg-section">
-    <div class="cfg-title">Artículos a excluir del análisis</div>
+    <div class="cfg-title">Artículos a excluir del % NG global</div>
+    <div class="exctrl">
+      <span class="ctrl-label">Artículo</span>
+      <select id="ng-excl-art"></select>
+      <button class="addbtn" onclick="addNGExcl()"><span class="material-icons-round" style="font-size:16px">add</span>Agregar</button>
+    </div>
+    <div class="ftable-wrap" style="margin-bottom:0">
+      <table class="extbl"><thead><tr><th>Artículo</th><th></th></tr></thead><tbody id="ng-excl-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="cfg-section">
+    <div class="cfg-title">Artículos a excluir del análisis general</div>
     <div class="exctrl">
       <span class="ctrl-label">Proceso</span>
       <select id="excl-proc" onchange="updateArtSelect()"></select>
       <span class="ctrl-label">Artículo</span>
       <select id="excl-art"></select>
       <button class="addbtn" onclick="addExcl()">
-        <span class="material-icons-round" style="font-size:16px">add</span>Agregar
-      </button>
-    </div>
-    <div class="ftable-wrap">
-      <table class="extbl"><thead><tr><th>Proceso</th><th>Artículo</th><th></th></tr></thead><tbody id="excl-tbody"></tbody></table>
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;gap:16px;margin-top:8px;">
-    <button class="savebtn" onclick="saveConfig()">
-      <span class="material-icons-round">save</span>Guardar configuración
-    </button>
-    <span class="savedmsg" id="saved-msg">✓ Guardado</span>
-  </div>
-</div>
-</div>
+        <span class="material-icons-ro
+
 <script>
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwEi7SzAYzKS1L-HX7-S_-wvldLfVg-i5A24c8Bt6LKea1YxN4cQa_ZhqWZZnOmFI0MMA/exec?key=suge1010';
 const PROCS = ['Tejeduría','Puntera','Corte','Bombacha','Planchado','Terminado'];
@@ -897,12 +896,34 @@ function processAllData(sh) {
   });
   window.TIEMPOS_RAW=tiemposRaw;
 
+  // ── Build MAQ_TIEMPOS: maq -> art -> [min/doc] ──
+  const maqTiempos={};
+  (sh.lote_conf||[]).forEach(r=>{
+    const cant=parseFloat(r.lote_conf_cantidad)||0;
+    const art=String(r.Articulo||'');
+    const maq=op2maq[r.orden_prod_id];
+    if(!cant||!art||!maq)return;
+    [['Puntera',r['Puntera_inicio'],r['Puntera_fin']],['Corte',r['Corte_inicio'],r['Corte_fin']],
+     ['Bombacha',r['Bombacha_inicio'],r['Bombacha_fin']],['Planchado',r['Planchado_inicio'],r['Planchado_fin']]
+    ].forEach(([,ini,fin])=>{
+      const id2=parseDate(ini),fd2=parseDate(fin);
+      if(!id2||!fd2||fd2<=id2)return;
+      const hrs=horasLaborales(id2,fd2);if(!hrs)return;
+      const dph=cant/hrs;if(dph<DPH_MIN||dph>DPH_MAX_T)return;
+      if(!maqTiempos[maq])maqTiempos[maq]={};
+      if(!maqTiempos[maq][art])maqTiempos[maq][art]=[];
+      maqTiempos[maq][art].push(hrs*60/cant);
+    });
+  });
+  if(!PATRONES_DATA)PATRONES_DATA={};
+  PATRONES_DATA.maq_tiempos=maqTiempos;
+
   console.log('processAllData: '+(Date.now()-t0)+'ms | weeks:'+allWeeks.length+' arts:'+artList.length);
 }
 
 
 let dashMonths=12;
-let cfg={metas:{},cap:{},excl:[]};
+let cfg={metas:{},cap:{},excl:[],ng_excl:[]};
 PROCS.forEach(p=>{cfg.metas[p]=0;cfg.cap[p]=0;});
 let mode='single';
 let selW=null, cmpW=null;
@@ -961,7 +982,7 @@ function fetchSheetsJSONP(showUI=false){
 async function fetchSheets(showUI=false){return await fetchSheetsJSONP(showUI);}
 
 // ── CONFIG ──
-function loadCfg(){try{const s=localStorage.getItem('sasre_cfg_v3');if(s)cfg=JSON.parse(s);}catch(e){}}
+function loadCfg(){try{const s=localStorage.getItem('sasre_cfg_v3');if(s){cfg=JSON.parse(s);if(!cfg.ng_excl)cfg.ng_excl=[];}}catch(e){}}
 function saveConfig(){
   PROCS.forEach(p=>{cfg.metas[p]=parseFloat(document.getElementById('m_'+p)?.value)||0;cfg.cap[p]=parseFloat(document.getElementById('c_'+p)?.value)||0;});
   localStorage.setItem('sasre_cfg_v3',JSON.stringify(cfg));
@@ -986,7 +1007,19 @@ function agg(w){
   });
   return res;
 }
-function calcFallas(a){let cn=0,co=0,tn=0,to_=0;if(a){CONF_PROCS.forEach(p=>{if(a[p]){co+=a[p].tc;cn+=a[p].tn;}});if(a.Terminado){to_+=a.Terminado.tc;tn+=a.Terminado.tn;}}return{cn,co,tn,to_};}
+function calcFallas(a,w){
+  if(!w||!cfg.ng_excl||!cfg.ng_excl.length){
+    let cn=0,co=0,tn=0,to_=0;
+    if(a){CONF_PROCS.forEach(p=>{if(a[p]){co+=a[p].tc;cn+=a[p].tn;}});if(a.Terminado){to_+=a.Terminado.tc;tn+=a.Terminado.tn;}}
+    return{cn,co,tn,to_};
+  }
+  const excl=new Set(cfg.ng_excl);
+  let cn=0,co=0,tn=0,to_=0;
+  const wr=RAW&&RAW.records&&RAW.records[w]||{};
+  CONF_PROCS.forEach(p=>{Object.values(wr[p]||{}).forEach(recs=>recs.forEach(r=>{if(!excl.has(r.art)){co+=r.cant;cn+=r.ng||0;}}));});
+  Object.values(wr['Terminado']||{}).forEach(recs=>recs.forEach(r=>{if(!excl.has(r.art)){to_+=r.cant;tn+=r.ng||0;}}));
+  return{cn,co,tn,to_};
+}
 function fPct(ng,ok){return(ok<=0&&ng<=0)?null:ng/(ok+ng)*100;}
 function fPill(ng,ok){const p=fPct(ng,ok);if(p===null)return'<span class="pill pill-neu">—</span>';const cls=p<2?'pill-ok':p<FALLA_ALERT?'pill-warn':'pill-crit';return'<span class="pill '+cls+'">'+p.toFixed(1)+'%</span>';}
 function dph(hc,h){return(!h||h<=0)?null:Math.round(hc/h*10)/10;}
@@ -1659,6 +1692,30 @@ function showMaqDetail(maq){
     +'<th style="text-align:left;'+thS+'">Artículo</th><th style="text-align:center;'+thS+'">% NG</th>'
     +'<th style="'+thS+'">NG doc</th><th style="'+thS+'">Total</th><th style="'+thS+'">Barra</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  // Tiempos por artículo
+  const maqT=(PATRONES_DATA&&PATRONES_DATA.maq_tiempos&&PATRONES_DATA.maq_tiempos[maq])||{};
+  const tiemposArts=Object.entries(maqT).map(([art,vals])=>{
+    const s=[...vals].sort((a,b)=>a-b);
+    const med=s.length%2===0?(s[s.length/2-1]+s[s.length/2])/2:s[Math.floor(s.length/2)];
+    return{art,med:Math.round(med*10)/10,dph:Math.round(60/med*10)/10,n:vals.length};
+  }).sort((a,b)=>a.med-b.med);
+  const tiemposEl=document.getElementById('pat-maq-detail-tiempos');
+  if(tiemposEl){
+    if(!tiemposArts.length)tiemposEl.innerHTML='<div class="nodata">Sin datos de tiempos</div>';
+    else{
+      const thS2='padding:8px 14px;font-size:10px;font-weight:500;color:var(--md-on-surface-var);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--md-outline-var);background:var(--md-surface-1);text-align:right;';
+      tiemposEl.innerHTML='<div class="stitle" style="margin-bottom:12px;margin-top:16px">Tiempos por artículo · mediana<span style="font-size:10px">en esta máquina</span></div>'
+        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'
+        +'<th style="text-align:left;'+thS2+'">Artículo</th><th style="'+thS2+'">min/doc</th><th style="'+thS2+'">d/hora</th><th style="'+thS2+'">Obs</th>'
+        +'</tr></thead><tbody>'+tiemposArts.map((r,i)=>{
+          const cls=r.med>15?'neg':r.med>8?'warn':'pos';
+          return '<tr><td style="padding:8px 14px;font-weight:500">'+(i+1)+'. '+r.art+'</td>'
+            +'<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace"><span class="'+cls+'">'+r.med.toFixed(1)+'</span></td>'
+            +'<td style="padding:8px 14px;text-align:right;font-family:Roboto Mono,monospace">'+r.dph.toFixed(1)+'</td>'
+            +'<td style="padding:8px 14px;text-align:right;font-size:11px;color:var(--md-on-surface-var)">'+r.n+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }
+  }
   el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -2045,9 +2102,11 @@ function showProdDetail(proc,emp){
     '<div class="astat"><div class="astat-label">Docenas</div><div class="astat-value" style="color:var(--md-primary)">'+Math.round(d.cant)+'</div><div class="astat-sub">total período</div></div>'
     +'<div class="astat"><div class="astat-label">Doc/hora</div><div class="astat-value '+(d.dph?'pos':'neu')+'">'+(d.dph||'—')+'</div><div class="astat-sub">dentro del lote</div></div>'
     +'<div class="astat"><div class="astat-label">Ef. normalizada</div><div class="astat-value '+efCls+'">'+(d.efNorm!=null?d.efNorm+'%':'—')+'</div><div class="astat-sub">vs estándar artículo</div></div>';
+  const hrsPerDia = d.dias>0&&d.horas>0 ? Math.round(d.horas/d.dias*10)/10 : null;
   document.getElementById('prod-detail-stats2').innerHTML=
     '<div class="astat"><div class="astat-label">% Fallas</div><div class="astat-value '+ngCls+'">'+ngPct.toFixed(1)+'%</div><div class="astat-sub">'+d.ng.toFixed(1)+' NG doc</div></div>'
-    +'<div class="astat"><div class="astat-label">Días activos</div><div class="astat-value">'+d.dias+'</div><div class="astat-sub">'+d.lotes+' lotes totales</div></div>'
+    +'<div class="astat"><div class="astat-label">Días activos</div><div class="astat-value">'+d.dias+'</div><div class="astat-sub">'+d.lotes+' lotes</div></div>'
+    +'<div class="astat"><div class="astat-label">Hs productivas/día</div><div class="astat-value '+(hrsPerDia!=null?(hrsPerDia>=6?'pos':hrsPerDia>=4?'warn':'neg'):'neu')+'">'+(hrsPerDia!=null?hrsPerDia+' h':'—')+'</div><div class="astat-sub">dentro de lotes</div></div>'
     +'<div class="astat"><div class="astat-label">Lotes/día</div><div class="astat-value">'+(d.lotesPorDia||'—')+'</div><div class="astat-sub">Consistencia: <span class="'+conCls+'">'+(d.consistency!=null?'±'+d.consistency+' d/h':'—')+'</span></div></div>';
   document.getElementById('prod-top-arts').innerHTML=d.top5arts.length
     ?d.top5arts.map(([art,cant],i)=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--md-outline-var)">'
@@ -2129,6 +2188,12 @@ function renderCfg(){
   const ps=document.getElementById('excl-proc');
   if(ps)ps.innerHTML=PROCS.map(p=>'<option value="'+p+'">'+p+'</option>').join('');
   updateArtSelect();renderExclTbl();
+  const ngArtSel=document.getElementById('ng-excl-art');
+  if(ngArtSel&&RAW){
+    const allArts=[...new Set(Object.values(RAW.articulos_por_proceso).flat())].sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return(!isNaN(na)&&!isNaN(nb))?na-nb:a.localeCompare(b);});
+    ngArtSel.innerHTML=allArts.map(a=>'<option value="'+a+'">'+a+'</option>').join('');
+  }
+  renderNGExclTbl();
 }
 function updateArtSelect(){
   const p=document.getElementById('excl-proc')?.value;
@@ -2142,6 +2207,17 @@ function addExcl(){
   if(!cfg.excl.some(e=>e.p===p&&e.a===a)){cfg.excl.push({p,a});renderExclTbl();}
 }
 function removeExcl(i){cfg.excl.splice(i,1);renderExclTbl();}
+function addNGExcl(){
+  const a=document.getElementById('ng-excl-art')?.value;
+  if(!a||cfg.ng_excl.includes(a))return;
+  cfg.ng_excl.push(a);renderNGExclTbl();
+}
+function removeNGExcl(i){cfg.ng_excl.splice(i,1);renderNGExclTbl();}
+function renderNGExclTbl(){
+  const tb=document.getElementById('ng-excl-tbody');if(!tb)return;
+  if(!cfg.ng_excl.length){tb.innerHTML='<tr><td colspan="2" style="color:var(--md-on-surface-var);text-align:center;padding:16px">Sin exclusiones</td></tr>';return;}
+  tb.innerHTML=cfg.ng_excl.map((a,i)=>'<tr><td style="font-family:Roboto Mono,monospace;padding:10px 14px">'+a+'</td><td style="padding:10px 14px"><button class="delbtn" onclick="removeNGExcl('+i+')">Quitar</button></td></tr>').join('');
+}
 function renderExclTbl(){
   const tb=document.getElementById('excl-tbody');if(!tb)return;
   if(!cfg.excl.length){tb.innerHTML='<tr><td colspan="3" style="color:var(--md-on-surface-var);text-align:center;padding:16px">Sin exclusiones</td></tr>';return;}
