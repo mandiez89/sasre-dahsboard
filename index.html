@@ -625,9 +625,33 @@ input[type=date]:focus{border-color:var(--md-primary);}
   <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
   <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
 </nav>
+
+
 <div class="mob-overlay" id="mob-overlay" onclick="closeDrawer()"></div>
 <nav class="mob-drawer" id="mob-drawer">
-  <div class="mob-draw
+  <div class="mob-drawer-header">
+    <div class="mob-drawer-logo">S</div>
+    <div>
+      <div style="font-weight:600;font-size:15px;color:var(--md-on-surface)">Sasre</div>
+      <div style="font-size:12px;color:var(--md-on-surface-var)">Tablero de Producción</div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:8px 0;">
+    <button class="mob-nav-item active" data-page="dashboard" onclick="showPage('dashboard',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">dashboard</span>Dashboard</button>
+    <button class="mob-nav-item" data-page="fallas" onclick="showPage('fallas',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">report_problem</span>Fallas</button>
+    <button class="mob-nav-item" data-page="productividad" onclick="showPage('productividad',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">speed</span>Productividad</button>
+    <button class="mob-nav-item" data-page="promedios" onclick="showPage('promedios',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">timer</span>Tiempos</button>
+    <button class="mob-nav-item" data-page="config" onclick="showPage('config',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">tune</span>Configuración</button>
+  </div>
+</nav>
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-btn active" data-page="dashboard" onclick="showPage('dashboard',null);syncBNav(this)"><span class="material-icons-round">dashboard</span>Dashboard</button>
+  <button class="bnav-btn" data-page="fallas" onclick="showPage('fallas',null);syncBNav(this)"><span class="material-icons-round">report_problem</span>Fallas</button>
+  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Prod.</button>
+  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
+  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
+</nav>
+<script>
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyKCEB5YpQ2SvTOoHkMuPhrriK1D57dB4qjFvFPWQkVtp97eOFXYtIBXvKaRmmEEesbUw/exec?key=suge1010';
 const PROCS = ['Tejeduría','Puntera','Corte','Bombacha','Planchado','Terminado'];
 const CONF_PROCS = ['Puntera','Corte','Bombacha','Planchado'];
@@ -2390,25 +2414,6 @@ function addExcl(){
 }
 function removeExcl(i){cfg.excl.splice(i,1);renderExclTbl();}
 function addNGExcl(){
-  const a=document.getElementById('ng-excl-art')?.value;
-  if(!a||cfg.ng_excl.includes(a))return;
-  cfg.ng_excl.push(a);renderNGExclTbl();
-}
-function removeNGExcl(i){cfg.ng_excl.splice(i,1);renderNGExclTbl();}
-function renderNGExclTbl(){
-  const tb=document.getElementById('ng-excl-tbody');if(!tb)return;
-  if(!cfg.ng_excl.length){tb.innerHTML='<tr><td colspan="2" style="color:var(--md-on-surface-var);text-align:center;padding:16px">Sin exclusiones</td></tr>';return;}
-  tb.innerHTML=cfg.ng_excl.map((a,i)=>'<tr><td style="font-family:Roboto Mono,monospace;padding:10px 14px">'+a+'</td><td style="padding:10px 14px"><button class="delbtn" onclick="removeNGExcl('+i+')">Quitar</button></td></tr>').join('');
-}
-function renderExclTbl(){
-  const tb=document.getElementById('excl-tbody');if(!tb)return;
-  if(!cfg.excl.length){tb.innerHTML='<tr><td colspan="3" style="color:var(--md-on-surface-var);text-align:center;padding:16px">Sin exclusiones</td></tr>';return;}
-  tb.innerHTML=cfg.excl.map((e,i)=>'<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+PC[e.p]+';margin-right:8px"></span>'+e.p+'</td><td style="font-family:Roboto Mono,monospace">'+e.a+'</td><td><button class="delbtn" onclick="removeExcl('+i+')">Quitar</button></td></tr>').join('');
-}
-initTheme();
-init();
-
-
   const a=document.getElementById('ng-excl-art')?.value;
   if(!a||cfg.ng_excl.includes(a))return;
   cfg.ng_excl.push(a);renderNGExclTbl();
