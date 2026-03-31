@@ -317,6 +317,20 @@ input[type=date]:focus{border-color:var(--md-primary);}
 .kpi-delta.pos{color:var(--md-green);}
 .kpi-delta.neg{color:var(--md-error);}
 .kpi-delta:not(.pos):not(.neg){color:var(--md-on-surface-var);}
+
+/* ── Mobile drawer ── */
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;}
+.mob-overlay.open{display:block;}
+.mob-drawer{position:fixed;top:0;left:0;width:260px;height:100vh;background:var(--md-surface-1);z-index:301;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 20px rgba(0,0,0,.15);display:flex;flex-direction:column;}
+.mob-drawer.open{transform:translateX(0);}
+.mob-drawer-header{padding:24px 20px 16px;border-bottom:1px solid var(--md-outline-var);display:flex;align-items:center;gap:12px;}
+.mob-drawer-logo{width:36px;height:36px;border-radius:10px;background:var(--md-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;}
+.mob-nav-item{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;color:var(--md-on-surface-var);border:none;background:transparent;width:100%;font-family:Roboto,sans-serif;font-size:14px;font-weight:500;transition:background .15s;text-align:left;}
+.mob-nav-item:hover{background:var(--md-surface);}
+.mob-nav-item.active{color:var(--md-primary);background:var(--md-primary-container);border-radius:0 24px 24px 0;margin-right:12px;width:calc(100% - 12px);}
+.mob-nav-item .material-icons-round{font-size:22px;}
+.mob-hamburger{display:none;background:none;border:none;cursor:pointer;padding:8px;color:var(--md-on-surface-var);border-radius:50%;align-items:center;justify-content:center;}
+@media(max-width:768px){.mob-hamburger{display:flex;}.bottom-nav{display:none!important;}}
 </style>
 </head>
 <body>
@@ -571,6 +585,14 @@ input[type=date]:focus{border-color:var(--md-primary);}
 
 
 
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-btn active" data-page="dashboard" onclick="showPage('dashboard',null);syncBNav(this)"><span class="material-icons-round">dashboard</span>Dashboard</button>
+  <button class="bnav-btn" data-page="articulo" onclick="showPage('articulo',null);syncBNav(this)"><span class="material-icons-round">inventory_2</span>Artículo</button>
+  <button class="bnav-btn" data-page="patrones" onclick="showPage('patrones',null);syncBNav(this)"><span class="material-icons-round">insights</span>Patrones</button>
+  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Productiv.</button>
+  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
+  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
+</nav>
 <div class="mob-overlay" id="mob-overlay" onclick="closeDrawer()"></div>
 <nav class="mob-drawer" id="mob-drawer">
   <div class="mob-drawer-header">
@@ -589,14 +611,7 @@ input[type=date]:focus{border-color:var(--md-primary);}
     <button class="mob-nav-item" data-page="config" onclick="showPage('config',null);setMobActive(this);closeDrawer()"><span class="material-icons-round">tune</span>Configuración</button>
   </div>
 </nav>
-<nav class="bottom-nav" id="bottom-nav">
-  <button class="bnav-btn active" data-page="dashboard" onclick="showPage('dashboard',null);syncBNav(this)"><span class="material-icons-round">dashboard</span>Dashboard</button>
-  <button class="bnav-btn" data-page="articulo" onclick="showPage('articulo',null);syncBNav(this)"><span class="material-icons-round">inventory_2</span>Artículo</button>
-  <button class="bnav-btn" data-page="patrones" onclick="showPage('patrones',null);syncBNav(this)"><span class="material-icons-round">insights</span>Patrones</button>
-  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Productiv.</button>
-  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
-  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
-</nav>
+
 <script>
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyKCEB5YpQ2SvTOoHkMuPhrriK1D57dB4qjFvFPWQkVtp97eOFXYtIBXvKaRmmEEesbUw/exec?key=suge1010';
 const PROCS = ['Tejeduría','Puntera','Corte','Bombacha','Planchado','Terminado'];
