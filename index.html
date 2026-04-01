@@ -538,6 +538,13 @@ input[type=date]:focus{border-color:var(--md-primary);}
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
         <span class="ctrl-label">Máquina</span>
         <select id="prod-maq-sel" onchange="renderProdMaqTiempos()"></select>
+        <span class="ctrl-label" style="margin-left:8px">Período</span>
+        <select id="prod-maq-period" onchange="renderProdMaqTiempos()">
+          <option value="3">3 meses</option>
+          <option value="6">6 meses</option>
+          <option value="12">12 meses</option>
+          <option value="0" selected>Todo</option>
+        </select>
       </div>
       <div id="prod-maq-tiempos"></div>
     </div>
@@ -620,12 +627,20 @@ input[type=date]:focus{border-color:var(--md-primary);}
       <span class="ctrl-label">Artículo</span>
       <select id="excl-art"></select>
       <button class="addbtn" onclick="addExcl()"><span class="material-icons-round" style="font-size:16px">add</span>Agregar</button>
-  <button class="bnav-btn" data-page="fallas" onclick="showPage('fallas',null);syncBNav(this)"><span class="material-icons-round">report_problem</span>Fallas</button>
-  <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Productiv.</button>
-  <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
-  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
-</nav>
+  
+    <div class="ftable-wrap" style="margin-bottom:0">
+      <table class="extbl"><thead><tr><th>Proceso</th><th>Artículo</th><th></th></tr></thead><tbody id="excl-tbody"></tbody></table>
+    </div>
+  </div>
 
+  <div class="cfg-section">
+    <button class="addbtn" onclick="saveConfig()" style="width:100%;justify-content:center;font-size:14px;padding:12px;">
+      <span class="material-icons-round" style="font-size:18px">save</span>Guardar configuración
+    </button>
+    <span id="saved-msg" style="display:none;color:var(--md-green);font-size:13px;margin-left:12px">✓ Guardado</span>
+  </div>
+</div>
+</div>
 
 <div class="mob-overlay" id="mob-overlay" onclick="closeDrawer()"></div>
 <nav class="mob-drawer" id="mob-drawer">
@@ -752,7 +767,9 @@ function processAllData(sh) {
     PM.forEach(([p,rc,ic,fc]) => {
       const resp=r[rc];if(!resp||resp==='No aplica')return;
       const ini=parseDate(r[ic]);if(!ini)return;
-      const fin=parseDate(r[fc]),isd=sd2(ini,fin),h=isd?hd2(ini,fin):null;
+      const fin=parseDate(r[fc]);
+      const h=horasLaborales(ini,fin); // uses turno 7-16, accepts up to 1 night
+      const isd=h!=null; // valid if horasLaborales returns a value
       if(art)arts[p].add(art);
       addRec(getWM(ini),p,resp,{art,cant,ng,h,sd:isd});
     });
@@ -762,7 +779,9 @@ function processAllData(sh) {
     if(r.terminado_estado!=='Finalizada')return;
     const ini=parseDate(r.terminado_fecha_inicio);
     if(!ini||!r.terminado_responsable||!r.terminado_cant_ok_total)return;
-    const fin=parseDate(r.terminado_fecha_fin),isd=sd2(ini,fin),h=isd?hd2(ini,fin):null;
+    const fin=parseDate(r.terminado_fecha_fin);
+    const h=horasLaborales(ini,fin);
+    const isd=h!=null;
     const cant=(parseFloat(r.terminado_cant_ok_total)||0)/12;
     const ng=(parseFloat(r.terminado_cant_ng_total)||0)/12;
     const art=String(r.Articulo||'');
@@ -919,7 +938,7 @@ function processAllData(sh) {
         recs.forEach(r=>{
           d.cant+=r.cant;d.ng+=r.ng||0;d.lotes++;
           if(r.art){d.arts[r.art]=(d.arts[r.art]||0)+r.cant;}
-          if(r.sd&&r.h&&r.h>0&&r.cant/r.h<=100){d.horas+=r.h;d.horas_cant+=r.cant;}
+          if(r.h&&r.h>0&&r.cant/r.h<=100){d.horas+=r.h;d.horas_cant+=r.cant;}
         });
       });
     });
@@ -1022,9 +1041,11 @@ function processAllData(sh) {
       if(!id2||!fd2||fd2<=id2)return;
       const hrs=horasLaborales(id2,fd2);if(!hrs)return;
       const dph=cant/hrs;if(dph<DPH_MIN||dph>DPH_MAX_T)return;
+      const mpd=hrs*60/cant,week=getWM(id2);
       if(!maqTiempos[maq])maqTiempos[maq]={};
-      if(!maqTiempos[maq][art])maqTiempos[maq][art]=[];
-      maqTiempos[maq][art].push(hrs*60/cant);
+      if(!maqTiempos[maq][art])maqTiempos[maq][art]={};
+      if(!maqTiempos[maq][art][week])maqTiempos[maq][art][week]=[];
+      maqTiempos[maq][art][week].push(mpd);
     });
   });
   if(!PATRONES_DATA)PATRONES_DATA={};
@@ -1853,7 +1874,9 @@ function showMaqDetail(maq){
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
   // Tiempos por artículo
   const maqT=(PATRONES_DATA&&PATRONES_DATA.maq_tiempos&&PATRONES_DATA.maq_tiempos[maq])||{};
-  const tiemposArts=Object.entries(maqT).map(([art,vals])=>{
+  const tiemposArts=Object.entries(maqT).map(([art,weekOrArr])=>{
+    // Support both {week:[vals]} and legacy [vals]
+    const vals=Array.isArray(weekOrArr)?weekOrArr:Object.values(weekOrArr).flat();
     const s=[...vals].sort((a,b)=>a-b);
     const med=s.length%2===0?(s[s.length/2-1]+s[s.length/2])/2:s[Math.floor(s.length/2)];
     return{art,med:Math.round(med*10)/10,dph:Math.round(60/med*10)/10,n:vals.length};
@@ -2165,12 +2188,20 @@ function renderProdMaqTiempos(){
   const maq=document.getElementById('prod-maq-sel')?.value;
   const el=document.getElementById('prod-maq-tiempos');
   if(!el)return;
+  const period=document.getElementById('prod-maq-period')?.value||'0';
+  const cutoff=period==='0'?null:(()=>{const d=new Date();d.setMonth(d.getMonth()-parseInt(period));return d.toISOString().slice(0,10);})();
   const maqT=(PATRONES_DATA&&PATRONES_DATA.maq_tiempos&&PATRONES_DATA.maq_tiempos[maq])||{};
-  const arts=Object.entries(maqT).map(([art,vals])=>{
+  const arts=Object.entries(maqT).map(([art,weekData])=>{
+    // Collect vals filtered by period
+    const vals=[];
+    Object.entries(weekData).forEach(([week,arr])=>{
+      if(!cutoff||week>=cutoff) vals.push(...arr);
+    });
+    if(!vals.length)return null;
     const s=[...vals].sort((a,b)=>a-b);
     const med=s.length%2===0?(s[s.length/2-1]+s[s.length/2])/2:s[Math.floor(s.length/2)];
     return{art,med:Math.round(med*10)/10,dph:Math.round(60/med*10)/10,n:vals.length};
-  }).sort((a,b)=>a.med-b.med);
+  }).filter(Boolean).sort((a,b)=>a.med-b.med);
   if(!arts.length){el.innerHTML='<div class="nodata">Sin datos para esta máquina</div>';return;}
   const thS='padding:8px 14px;font-size:11px;font-weight:500;color:var(--md-on-surface-var);letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--md-outline-var);background:var(--md-surface-1);text-align:right;';
   el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'
