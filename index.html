@@ -526,6 +526,7 @@ input[type=date]:focus{border-color:var(--md-primary);}
           <div><div class="stitle" style="margin-bottom:10px">Tendencia semanal</div><div style="height:200px;position:relative;"><canvas id="prod-dph-chart"></canvas></div></div>
           <div><div class="stitle" style="margin-bottom:10px">Top 5 artículos</div><div id="prod-top-arts"></div></div>
         </div>
+        <div id="prod-daily-table"></div>
       </div>
     </div>
   </div>
@@ -664,9 +665,7 @@ input[type=date]:focus{border-color:var(--md-primary);}
   <button class="bnav-btn" data-page="fallas" onclick="showPage('fallas',null);syncBNav(this)"><span class="material-icons-round">report_problem</span>Fallas</button>
   <button class="bnav-btn" data-page="productividad" onclick="showPage('productividad',null);syncBNav(this)"><span class="material-icons-round">speed</span>Prod.</button>
   <button class="bnav-btn" data-page="promedios" onclick="showPage('promedios',null);syncBNav(this)"><span class="material-icons-round">timer</span>Tiempos</button>
-  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">tune</span>Config</button>
-</nav>
-<script>
+  <button class="bnav-btn" data-page="config" onclick="showPage('config',null);syncBNav(this)"><span class="material-icons-round">
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyKCEB5YpQ2SvTOoHkMuPhrriK1D57dB4qjFvFPWQkVtp97eOFXYtIBXvKaRmmEEesbUw/exec?key=suge1010';
 const PROCS = ['Tejeduría','Puntera','Corte','Bombacha','Planchado','Terminado'];
 const CONF_PROCS = ['Puntera','Corte','Bombacha','Planchado'];
@@ -2314,6 +2313,44 @@ function renderProdTable(){
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
     +'<div style="font-size:11px;color:var(--md-on-surface-var);margin-top:8px">↗ Click para detalle · Ef.norm = doc/h vs estándar artículo</div>';
 }
+function renderDailyTable(proc,emp,filtWeeks){
+  const el=document.getElementById('prod-daily-table');if(!el)return;
+  const rows=[];
+  filtWeeks.forEach(week=>{
+    const wr=RAW&&RAW.records&&RAW.records[week];
+    if(!wr||!wr[proc]||!wr[proc][emp])return;
+    wr[proc][emp].forEach(r=>{
+      rows.push({week,art:r.art||'—',cant:r.cant,ng:r.ng||0,
+        dph:r.h&&r.h>0?Math.round(r.cant/r.h*10)/10:null});
+    });
+  });
+  if(!rows.length){el.innerHTML='<div class="nodata" style="padding:12px">Sin registros</div>';return;}
+  rows.sort((a,b)=>b.week.localeCompare(a.week)||b.cant-a.cant);
+  const thS='padding:6px 12px;font-size:11px;font-weight:500;color:var(--md-on-surface-var);letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--md-outline-var);background:var(--md-surface-1);text-align:right;';
+  el.innerHTML='<div class="stitle" style="margin-bottom:8px;margin-top:16px">Detalle por lote</div>'
+    +'<div style="overflow-x:auto;max-height:280px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+    +'<th style="text-align:left;'+thS+'">Semana</th>'
+    +'<th style="text-align:left;'+thS+'">Artículo</th>'
+    +'<th style="'+thS+'">Doc</th>'
+    +'<th style="'+thS+'">d/h</th>'
+    +'<th style="'+thS+'">% Fallas</th>'
+    +'</tr></thead><tbody>'
+    +rows.slice(0,60).map(r=>{
+      const dphCls=r.dph?(r.dph>=8?'pos':r.dph>=4?'warn':'neg'):'neu';
+      const ngPct=r.cant+r.ng>0?r.ng/(r.cant+r.ng)*100:0;
+      const ngCls=ngPct>=5?'neg':ngPct>=2?'warn':'pos';
+      return '<tr>'
+        +'<td style="padding:6px 12px;color:var(--md-on-surface-var)">S'+wn(r.week)+' '+r.week.slice(0,7)+'</td>'
+        +'<td style="padding:6px 12px;font-weight:500">'+r.art+'</td>'
+        +'<td style="padding:6px 12px;text-align:right;font-family:Roboto Mono,monospace">'+r.cant.toFixed(1)+'</td>'
+        +'<td style="padding:6px 12px;text-align:right"><span class="'+dphCls+'">'+(r.dph!=null?r.dph:'—')+'</span></td>'
+        +'<td style="padding:6px 12px;text-align:right"><span class="'+ngCls+'">'+ngPct.toFixed(1)+'%</span></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>'
+    +(rows.length>60?'<div style="font-size:11px;color:var(--md-on-surface-var);margin-top:4px">'+(rows.length-60)+' más</div>':'');
+}
+
 function showProdDetail(proc,emp){
   const filtWeeks=getProdWeeks();
   const d=aggProdEmp(proc,emp,filtWeeks);
@@ -2338,6 +2375,7 @@ function showProdDetail(proc,emp){
         +'<span style="font-size:13px;font-weight:500">'+(i+1)+'. '+art+'</span>'
         +'<span style="font-family:Roboto Mono,monospace;font-size:12px;color:var(--md-on-surface-var)">'+Math.round(cant)+' doc</span></div>').join('')
     :'<div class="nodata" style="padding:16px">Sin datos</div>';
+  renderDailyTable(proc,emp,filtWeeks);
   if(prodDphChart){prodDphChart.destroy();prodDphChart=null;}
   const cv=document.getElementById('prod-dph-chart');
   if(cv){
@@ -2459,6 +2497,11 @@ function renderExclTbl(){
   const tb=document.getElementById('excl-tbody');if(!tb)return;
   if(!cfg.excl.length){tb.innerHTML='<tr><td colspan="3" style="color:var(--md-on-surface-var);text-align:center;padding:16px">Sin exclusiones</td></tr>';return;}
   tb.innerHTML=cfg.excl.map((e,i)=>'<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+PC[e.p]+';margin-right:8px"></span>'+e.p+'</td><td style="font-family:Roboto Mono,monospace">'+e.a+'</td><td><button class="delbtn" onclick="removeExcl('+i+')">Quitar</button></td></tr>').join('');
+}
+initTheme();
+init();
+
+</tr>').join('');
 }
 initTheme();
 init();
